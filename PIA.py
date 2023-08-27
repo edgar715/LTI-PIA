@@ -1,5 +1,9 @@
 import datetime
 
+def talonario(periodo, folio, nota, fecha_actual, fecha_procesada_final):
+    periodo.append((folio, nota, fecha_actual, fecha_procesada_final))
+
+
 periodo = []
 folio = 1
 
