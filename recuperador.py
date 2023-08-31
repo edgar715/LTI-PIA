@@ -1,10 +1,6 @@
-papelera={1: ['Reparación', '08/09/2023', '27/10/2023'],
-    2: ['Mantenimiento', '15/10/2023', '20/11/2023'],
-    3: ['Recolección de residuos', '03/09/2023', '10/09/2023'],
-    4: ['Inspección de equipos', '12/11/2023', '18/11/2023'],
-    5: ['Capacitación sobre reciclaje', '22/09/2023', '30/09/2023']}
-        
 dic_principal={6: ['Reparación', '08/09/2023', '27/10/2023']}
+
+papelera={}
 
 def recuperador_archivos():
     print(f'folio')
@@ -56,27 +52,35 @@ dic={1: ['Reparación', '08/09/2023', '27/10/2023'],
     5: ['Capacitación sobre reciclaje', '22/09/2023', '30/09/2023']}
 
 def eliminador_notas():
-    try:
-        opcion=int(input('INGRESA EL FOLIO A ELIMINAR: \n'))
-    except Exception:
-        print('el dato debe ser de tipo entero no str')
-    else:
-        if opcion in papelera:
-            recuperador=papelera[opcion]
-            print('\nFOLIO\tNOTA\t\tFECHA DE INICIO\t\tTFECHA DE ENTREGA')
-            print(f'{opcion}:\t{recuperador[0]}\t{recuperador[1]}\t\t{recuperador[2]}')
+    while True:
+        try:
+            opcion=int(input('SELECCIONA EL FOLIO A ELIMINAR: \n'))
+        except ValueError:
+            print('debes ingresar un dato int no string vuelve a intentarlo')
+            continue
         else:
-            print(f'EL FOLIO {opcion} NO EXISTE')
+            if opcion in dic:
+                recuperador=dic[opcion]
+                print('\nFOLIO\tNOTA\t\tFECHA DE INICIO\t\tTFECHA DE ENTREGA')
+                print(f'{opcion}:\t{recuperador[0]}\t{recuperador[1]}\t\t{recuperador[2]}')
+                break
+            else:
+                print('no existe')
+    print('\n')
+    while True: 
+        try:
+            print('[1] ELIMINAR\n[2] CANCELAR')
+            opcion_2=int(input('SELECCIONA: \n'))
+        except Exception:
+            print("Debes ingresas un dato entero")
+        else:
+            if (opcion_2 == 1):
+                recuperado=dic.pop(opcion)
+                papelera[opcion]=recuperado
+            if (opcion_2 == 2):
+                print('NO SE HA PODIDO RECUPEAR')
+            break  
 
-    print('[1] ELIMINAR\n[2] CANCELAR')
-    opcion_2=int(input('SELECCIONA: \n'))
-    print("Debes ingresas un dato entero")
-    if (opcion_2 == 1):
-        dic.pop(opcion)
-    if (opcion_2 == 2):
-        print('NO SE HA PODIDO RECUPEAR')
-    
-        
-
-eliminador_notas()
+recuperador_archivos()
 print(dic)
+print(papelera)
