@@ -3,14 +3,17 @@ diccionario = {
     2: ["Cambio de llantas"],
     3: ["Refaccion de asientos"]
 }
+      
+while True:
+    try:
+        consultar = int(input("Escribe el id de la nota que buscas")) 
+        for folio, notas in diccionario.items():
+            if consultar == folio:
+                print(f'Folio\tNotas')
+                print(f'{folio}\t{notas[0]}')
+        if consultar not in diccionario:
+            print("No existe registros\nEstos son los folios que tenemos en nuestra base de datos")
+            print(list(diccionario.keys()))
 
-variable = int(input("Dime el id de la clave que borraras"))
-diccionario.pop(variable)
-print(f'Folio\tNotas')
-for folio , notas in diccionario.items():
-    print(f'{folio}\t{notas[0]}')
-
-consultar = int(input("Escribe el id de la nota que buscas"))
-for folio , notas in diccionario.items():
-    if consultar == folio:
-        print(f'{folio}\t{notas[0]}')
+    except ValueError:
+        print("Ingreso un valor no valido")

@@ -192,7 +192,7 @@ def menu_principal():
     while True:
         try:
             print("\nMENU PRINCIPAL")
-            print("[1] Registrar Nota\n[2] Concultas y reportes\n[3] Cancelar una nota\n[4] Recuperar una nota\n [5] SALIDA")
+            print("[1] Registrar Nota\n[2] Consultas y reportes\n[3] Cancelar una nota\n[4] Recuperar una nota\n [5] SALIDA")
             opcion = input('Ingresa una opcion:\n')
             if opcion.strip() == "":
                 print('No se debe omitir el dato')
