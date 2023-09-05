@@ -38,9 +38,6 @@ def registrar_nota():
         if (servicio_elegido == ""):
             print("No se debe omitir el dato")
             continue
-        if not(bool(re.match("^[A-Za-z]$",servicio_elegido))):
-            print('Solo se debe ingresar caracteres')
-            continue
         break
     while True:
         try:
