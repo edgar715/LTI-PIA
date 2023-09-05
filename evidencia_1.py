@@ -23,9 +23,23 @@ def registrar_nota():
             continue
         break
     while True:
+        try:
+            print(f"Fecha actual: {fecha_maxima}")
+            fecha_entrega = input("Fecha de entrega (DD/MM/AAAA): ")
+            fecha_entrega = dt.datetime.strptime(fecha_entrega, "%d/%m/%Y")
+            if fecha_entrega > fecha_actual:
+                print("La fecha de entrega debe ser mayor a la fecha actual. Inténtalo de nuevo.")
+                continue
+            break
+        except ValueError:
+            print("Formato de fecha incorrecto. Inténtalo de nuevo (DD/MM/AAAA).")
+    while True:
         servicio_elegido=input("Elige el servicio que requieres:\n")
         if (servicio_elegido == ""):
             print("No se debe omitir el dato")
+            continue
+        if not(bool(re.match("^[A-Za-z]$",servicio_elegido))):
+            print('Solo se debe ingresar caracteres')
             continue
         break
     while True:
@@ -35,17 +49,7 @@ def registrar_nota():
             print('se debe ingresar digitos')
         else:
             break
-    while True:
-        try:
-            print(f"Fecha actual: {fecha_maxima}")
-            fecha_entrega = input("Fecha de entrega (DD/MM/AAAA): ")
-            fecha_entrega = dt.datetime.strptime(fecha_entrega, "%d/%m/%Y")
-            if fecha_entrega <= fecha_actual:
-                print("La fecha de entrega debe ser mayor a la fecha actual. Inténtalo de nuevo.")
-                continue
-            break
-        except ValueError:
-            print("Formato de fecha incorrecto. Inténtalo de nuevo (DD/MM/AAAA).")
+
 
     nueva_nota = [cliente, fecha_inicio.strftime("%d/%m/%Y"), fecha_entrega.strftime("%d/%m/%Y") ,servicio_elegido, monto_total]
     dic_principal[folio] = nueva_nota
@@ -57,6 +61,7 @@ def registrar_nota():
     print(f"Fecha de Entrega: {fecha_entrega.strftime('%d/%m/%Y')}")
     print(f"Cliente: {cliente}")
     print(f"Servicio: {servicio_elegido}")
+    print(f'Monto Total: {monto_total}')
 
 def consultar_folio():  
     while True:
@@ -118,7 +123,7 @@ def consultas_reportes():
             if (opcion.strip() == ""):
                 print('No se debe omitir el dato')
                 continue
-            if not(bool(re.match("^[1-2]{1}$",opcion))):
+            if not(bool(re.match("^[0-2]{1}$",opcion))):
                 print('No cumple con el patron')
                 continue
             opcion=int(opcion)
@@ -206,8 +211,8 @@ def eliminador_notas():
                 continue
             if opcion in dic_principal:
                 recuperador = dic_principal[opcion]
-                print('\nFOLIO\tCLIENTE\t\tFECHA DE PEDIDO\t\tFECHA DE ENTREGA\t\tSERVICIO\t\tMONTO')
-                print(f'{opcion}:\t{recuperador[0]}\t\t{recuperador[1]}\t\t{recuperador[2]}\t\t{recuperador[3]}\t\t{recuperador[4]}')
+                print('\nFOLIO\tCLIENTE\t\tFECHA DE PEDIDO\t\tFECHA DE ENTREGA\tSERVICIO\tMONTO')
+                print(f'{opcion}:\t\t{recuperador[0]}\t\t{recuperador[1]}\t\t{recuperador[2]}\t\t{recuperador[3]}\t\t{recuperador[4]}')
                 while True:
                     try:
                         print('[1] ELIMINAR\n[2] CANCELAR')
@@ -263,6 +268,3 @@ def menu_principal():
                 continue
 
 menu_principal()
-        
-
-
