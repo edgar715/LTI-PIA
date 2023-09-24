@@ -7,6 +7,10 @@ fecha_maxima = fecha_actual.strftime("%d/%m/%Y")
 dic_principal = {}
 papelera={}
 
+def validar_email(email):
+    email_pattern = r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$"
+    return re.match(email_pattern, email)
+
 def generar_folio():
     ultimo_folio = max(dic_principal.keys()) if dic_principal else 0
     nuevo_folio = ultimo_folio + 1
@@ -16,9 +20,6 @@ def registrar_nota():
     print("REGISTRO DE NOTA")
     folio = generar_folio()
     fecha_inicio = fecha_actual
-
-    servicios=[]
-    precios=[]
     while True:
         cliente = input("Cliente:\n")
         if (cliente.strip() == ""):
@@ -28,62 +29,42 @@ def registrar_nota():
     while True:
         try:
             print(f"Fecha actual: {fecha_maxima}")
-            fecha_nota = input("Fecha de Nota (DD/MM/AAAA): ")
-            fecha_nota = dt.datetime.strptime(fecha_nota, "%d/%m/%Y")
-            if fecha_nota > fecha_actual:
-                print("LA FECHA DE LA NOTA DEBER SER MENOR AL DIA DE HOY: {fecha_maxinma}\n")
+            fecha_entrega = input("Fecha de entrega (DD/MM/AAAA): ")
+            fecha_entrega = dt.datetime.strptime(fecha_entrega, "%d/%m/%Y")
+            if fecha_entrega > fecha_actual:
+                print("La fecha de entrega debe ser mayor a la fecha actual. Inténtalo de nuevo.")
                 continue
             break
         except ValueError:
             print("Formato de fecha incorrecto. Inténtalo de nuevo (DD/MM/AAAA).")
-
     while True:
-        try:
-            servicio_elegido=input("Elige el servicio que requieres:\n")
-            if (servicio_elegido == ""):
-                print("No se debe omitir el dato")
-                continue
-        except Exception:
-            print("ERROR NO CUMPLE CON LOS CARACTERES ALFANUMERICOS")
+        servicio_elegido=input("Elige el servicio que requieres:\n")
+        if (servicio_elegido == ""):
+            print("No se debe omitir el dato")
             continue
+        break
+    servicios = servicio_elegido.split(',')
+    monto_total = 0.0
+    for servicio in servicios:
         try:
-            monto=float(input("Ingresa el monto a cobrar:\n"))
-        except Exception:
-            print('se debe ingresar digitos')
-        else:
-            servicios.append(servicio_elegido)
-            precios.append(monto)
-
-        try:
-            seguimiento=input('DESEAS AGREGAR OTRO SERVICIO:\n[1] SI\n[2] NO\n')
-            if (seguimiento.strip==""):
-                print('No se debe omitir el dato')
-                continue
-            if not(bool(re.match("^[1-2]{1}$", seguimiento))):
-                print('Patron incorrecto solo se aceptan digitos 1 y 2')
-                continue
-            seguimiento=int(seguimiento)
+            servicio_amount = float(input(f"Monto para el servicio '{servicio.strip()}':\n"))
+            monto_total += servicio_amount
         except ValueError:
-            print('Solo se ingresan datos enteros no decimales')
+            print(f'Monto para el servicio "{servicio.strip()}" debe ser un número válido. Inténtalo de nuevo.')
             continue
-        else:
-            if (seguimiento != 1):
-                monto_total= sum(precios)
-                break
-            else:
-                continue
 
-    nueva_nota = [cliente, fecha_inicio.strftime("%d/%m/%Y"), fecha_nota.strftime("%d/%m/%Y") ,servicio_elegido, monto_total]
+
+    nueva_nota = [cliente, fecha_inicio.strftime("%d/%m/%Y"), fecha_entrega.strftime("%d/%m/%Y") ,servicio_elegido, monto_total]
     dic_principal[folio] = nueva_nota
 
     print(f"Nota registrada con éxito. Folio: {folio}")
     print("Detalles de la nota:")
-    print(f"FOLIO: {folio}")
-    print(f"FECHA ACTUAL: {fecha_inicio.strftime('%d/%m/%Y')}")
-    print(f"FECHA DE LA NOTA: {fecha_nota.strftime('%d/%m/%Y')}")
-    for s in servicios:
-        print(f'SERVICIOS: {s}')
-    print(f"MONTO TOTAL: {monto_total}")
+    print(f"Folio: {folio}")
+    print(f"Fecha de Pedido: {fecha_inicio.strftime('%d/%m/%Y')}")
+    print(f"Fecha de Entrega: {fecha_entrega.strftime('%d/%m/%Y')}")
+    print(f"Cliente: {cliente}")
+    print(f"Servicio: {servicio_elegido}")
+    print(f'Monto Total: {monto_total}')
 
 def consultar_folio():  
     while True:
