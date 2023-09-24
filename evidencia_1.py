@@ -1,15 +1,22 @@
 import datetime as dt
 import re
 
+
+clave = 0
 fecha_actual = dt.datetime.now()
 fecha_maxima = fecha_actual.strftime("%d/%m/%Y")
 
+rfc_dict = {}
 dic_principal = {}
 papelera={}
 
+def no_cumple_condicion(valor):
+    regex = r'^[a-zA-Z]{4}[0-9]{4}[a-zA-Z]{2}[0-9]{1}$'
+    return not bool(re.match(regex, valor))   
+
 def validar_email(email):
     email_pattern = r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$"
-    return re.match(email_pattern, email)
+    return not bool (re.match(email_pattern, email))
 
 def generar_folio():
     ultimo_folio = max(dic_principal.keys()) if dic_principal else 0
@@ -17,55 +24,113 @@ def generar_folio():
     return nuevo_folio
 
 def registrar_nota():
+    global clave
     print("REGISTRO DE NOTA")
     folio = generar_folio()
     fecha_inicio = fecha_actual
+
     while True:
-        cliente = input("Cliente:\n")
-        if (cliente.strip() == ""):
-            print("No se debe omitir el dato")
+        print(f"Fecha actual: {fecha_maxima}")
+        fecha_nota = input("FECHA DE LA NOTA\nDEBERA CUMPLIR EL SIGUIENTE FORMATO: DD/MM/AAAA\n")
+        if (fecha_nota.strip() == ""):
+            print('NO SE DEBE OMITIR EL DATO\n')
             continue
-        break
-    while True:
         try:
-            print(f"Fecha actual: {fecha_maxima}")
-            fecha_entrega = input("Fecha de entrega (DD/MM/AAAA): ")
-            fecha_entrega = dt.datetime.strptime(fecha_entrega, "%d/%m/%Y")
-            if fecha_entrega > fecha_actual:
-                print("La fecha de entrega debe ser mayor a la fecha actual. Inténtalo de nuevo.")
+            fecha_nota = dt.datetime.strptime(fecha_nota, "%d/%m/%Y")
+            if fecha_nota > fecha_actual:
+                print("\nLA FECHA DE LA NOTA DEBE SER MENOR O IGUAL A LA FECHA DE HOY\n")
                 continue
-            break
-        except ValueError:
-            print("Formato de fecha incorrecto. Inténtalo de nuevo (DD/MM/AAAA).")
-    while True:
-        servicio_elegido=input("Elige el servicio que requieres:\n")
-        if (servicio_elegido == ""):
-            print("No se debe omitir el dato")
+        except Exception:
+            print("\nFORMATO DE FECHA INCORRECTO. INTENTA LO SIGUIENTE\nDD/MM/AAAA.\n")
             continue
         break
-    servicios = servicio_elegido.split(',')
-    monto_total = 0.0
-    for servicio in servicios:
-        try:
-            servicio_amount = float(input(f"Monto para el servicio '{servicio.strip()}':\n"))
-            monto_total += servicio_amount
-        except ValueError:
-            print(f'Monto para el servicio "{servicio.strip()}" debe ser un número válido. Inténtalo de nuevo.')
+
+    while True:
+        cliente = input("ESCRIBE EL NOMBRE DEL CLIENTE:\n")
+        if (cliente.strip() == ""):
+            print("NO SE DEBE OMITIR EL DATO\n")
             continue
+        break
+    
+    clave += 1      
 
+    while True:    
+        rfc = input("\nINGRESE EL RFC DE LA PERSONA:\n")
+        rfc = rfc.upper()
+        rfc_dict[clave] = rfc
+        if no_cumple_condicion(rfc):
+            print('\nEL RFC DEBE CONTENER LO SIGUIENTE')
+            print('1: DEBE CONTENER 4 LETRAS')
+            print('2: DESPUES DEBE CONTENER 4 NUMEROS')
+            print('3: DESPUES DEBE CONTENER 2 LETRAS')
+            print('4: FINALMENTE DEBE CONTENER 1 NUMERO')
+            continue
+        else:
+            break 
+    
+    while True:
+        correo_nota = input('\nINGRESA EL CORREO DEL CLIENTE:\n')
+        if correo_nota.strip() == "":
+            print('\nNO SE DEBE OMITIR EL DATO\n')
+            continue
+        if validar_email(correo_nota):
+            print('\nFORMATO INCORRECTO INTENTE DE NUEVO\n')
+            continue
+        else:
+            break
+    
+    servicios={}
+    monto_total=[]
 
-    nueva_nota = [cliente, fecha_inicio.strftime("%d/%m/%Y"), fecha_entrega.strftime("%d/%m/%Y") ,servicio_elegido, monto_total]
+    while True:
+        try:
+            servicio_elegido=input("\nPARA DEJAR DE INGRESAR SERVICIOS INGRESE 0\nELIGE EL SERVICIO A REALIZAR:\n")
+            if (servicio_elegido == ""):
+                print("No se debe omitir el dato")
+                continue
+            if (servicio_elegido == "0"):
+                break
+        except Exception:
+            print('ERROR INTENTE DE NUEVO')
+            continue
+        
+        while True:
+            try:
+                monto=input("\nINGRESA EL MONTO DEL SERVICIO:\n")
+                if (monto == ""):
+                    print('NO SE DEBE OMITIR EL DATO\n')
+                    continue
+                if not (bool(re.match(r"^[0-9]+(\.[0-9]{1,2})?$", monto))):
+                    print('NO CUMPLE CON EL FORMATO\nDEBE INCLUIR ENTEROS Y 2 DECIMALES')
+                    continue
+                monto=float(monto)
+            except ValueError:
+                print('SE DEBE INGRESAR SOLO DIGITOS')
+                continue
+            else:
+                if (monto <= 0):
+                    print('EL MONTO DEBE SER MAYOR A CERO\n')
+                    continue
+                servicios[servicio_elegido] = monto
+                monto_total.append(monto)
+            break
+        
+    
+    monto_total=sum(monto_total)
+    nueva_nota = [cliente, fecha_inicio.strftime("%d/%m/%Y"), fecha_nota.strftime("%d/%m/%Y") ,servicios, monto_total]
     dic_principal[folio] = nueva_nota
 
     print(f"Nota registrada con éxito. Folio: {folio}")
     print("Detalles de la nota:")
     print(f"Folio: {folio}")
     print(f"Fecha de Pedido: {fecha_inicio.strftime('%d/%m/%Y')}")
-    print(f"Fecha de Entrega: {fecha_entrega.strftime('%d/%m/%Y')}")
+    print(f"Fecha de Entrega: {fecha_nota.strftime('%d/%m/%Y')}")
     print(f"Cliente: {cliente}")
-    print(f"Servicio: {servicio_elegido}")
+    print(f'RFC del Cliente: {rfc}')
+    for servicio, monto in servicios.items():
+        print(f'{servicio} CON UN COSTO DE: {monto}')
     print(f'Monto Total: {monto_total}')
-
+    print(f'\n\n{dic_principal}')
 def consultar_folio():  
     while True:
         try:
