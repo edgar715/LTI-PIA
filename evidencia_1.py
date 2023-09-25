@@ -1,6 +1,7 @@
 import datetime as dt
 import re
 import csv
+import os
 
 
 clave = 0
@@ -325,18 +326,8 @@ def cancelador_notas():
             print('DEBES INGRESAR UN DATO ENTERO')
             continue
 
-def guardar_dic_principal(dic_principal):
-    with open("mecanico.csv","w", newline="") as pia:
-        mecanico = csv.writer(pia)
-        mecanico.writerow(["Folio", "Fecha de Nota", "Cliente", "RFC", "Correo", "Servicios", "Monto Total"])
-        for folio, datos in dic_principal.items():
-            fecha, cliente, rfc, correo, servicios, monto = datos
-            mecanico.writerow([folio, fecha, cliente, rfc, correo, servicios, monto])
-
-
 def menu_principal():
     while True:
-        print(dic_principal)
         try:
             print("\nMENU PRINCIPAL")
             print("[1] Registrar Nota\n[2] Consultas y reportes\n[3] Cancelar una nota\n[4] Recuperar una nota\n[5] SALIDA")
@@ -367,4 +358,26 @@ def menu_principal():
                 print('No existe el Comando intenta de nuevo')
                 continue
 
+def guardar_dic_principal(dic_principal):
+    with open("mecanico.csv","w", newline="") as pia:
+        mecanico = csv.writer(pia)
+        mecanico.writerow(["Folio", "Fecha de Nota", "Cliente", "RFC", "Correo", "Servicios", "Monto Total"])
+        for folio, datos in dic_principal.items():
+            fecha, cliente, rfc, correo, servicios, monto = datos
+            folio = int(folio)
+            monto = float(monto)
+            mecanico.writerow([folio, fecha, cliente, rfc, correo, servicios, monto])
+
+def cargar_datos_desde_csv():
+    if os.path.exists("mecanico.csv"):
+        with open("mecanico.csv", "r") as archivo_csv:
+            lector_csv = csv.reader(archivo_csv)
+            for fila in lector_csv:
+                folio, fecha, cliente, rfc, correo, servicios, monto = fila
+                dic_principal[folio] = [fecha, cliente, rfc, correo, servicios, monto]
+        print("Datos cargados desde el archivo CSV.")
+    else:
+        print("No se encontró un archivo CSV. La aplicación parte de un estado inicial vacío.")
+
+cargar_datos_desde_csv()
 menu_principal()
