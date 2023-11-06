@@ -120,7 +120,7 @@ def ORDENAR_CLIENTES_CLAVE():
     print(clientes_df)
     while True:
         try:
-            opcion = int(input('EXPORTAR ARCHIVO A CSV [1]\nEXPORTAR ARCHIVO A EXCEL [2]\nREGRESAR A MENU [3]\n'))
+            opcion = input('EXPORTAR ARCHIVO A CSV [1]\nEXPORTAR ARCHIVO A EXCEL [2]\nREGRESAR A MENU [3]\n')
             if not(bool(re.match("[1-3]{1}", opcion))):
                 print('NO CUMPLE CON EL PATRON\n')
                 continue
@@ -182,7 +182,7 @@ def ORDENAR_CLIENTES_NOMBRE():
     print()
     while True:
         try:
-            opcion = int(input('EXPORTAR ARCHIVO A CSV [1]\nEXPORTAR ARCHIVO A EXCEL [2]\nREGRESAR A MENU [3]\n'))
+            opcion = input('EXPORTAR ARCHIVO A CSV [1]\nEXPORTAR ARCHIVO A EXCEL [2]\nREGRESAR A MENU [3]\n')
             if not(bool(re.match("[1-3]{1}", opcion))):
                 print('NO CUMPLE CON EL PATRON\n')
                 continue
@@ -211,7 +211,7 @@ def CONSULTAS_REPORTES():
     print()
     while True:
         try:
-            opcion = int(input('LISTADO DE CLIENTES\nBUCAR POR LA CLAVE [1]\nBUSCAR POR EL NOMBRE [2]\nLISTADO DE SERVICIOS[3]\nVOLVER AL MENU DE CONSULTAS Y REPORTES [4]\n'))
+            opcion = input('LISTADO DE CLIENTES\nBUCAR POR LA CLAVE [1]\nBUSCAR POR EL NOMBRE [2]\nLISTADO DE SERVICIOS[3]\nVOLVER AL MENU DE CONSULTAS Y REPORTES [4]\n')
             if not(bool(re.match("[1-4]{1}", opcion))):
                 print('NO CUMPLE CON EL PATRON\n')
                 continue
@@ -235,7 +235,7 @@ def LISTADO_SERVICIOS():
     print()
     while True:
         try:
-            opcion = int(input('LISTADO DE CLIENTES\nORDENADOS POR LA CLAVE [1]\nORDENADOS POR EL NOMBRE [2]\nVOLVER AL MENU DE CONSULTAS Y REPORTES [3]\n'))
+            opcion = input('LISTADO DE CLIENTES\nORDENADOS POR LA CLAVE [1]\nORDENADOS POR EL NOMBRE [2]\nVOLVER AL MENU DE CONSULTAS Y REPORTES [3]\n')
             if not(bool(re.match("[1-3]{1}", opcion))):
                 print('NO CUMPLE CON EL PATRON\n')
                 continue        
@@ -256,7 +256,7 @@ def LISTADO_SERVICIOS():
 def MENU_CLIENTES_PRINCIPAL():
     while True:
         try:
-            opcion = int(input('MENU DE CLIENTES\nREGISTRAR UN NUEVO CLIENTE [1]\nCONSULTAS Y REPORTES [2]\nVOLVER AL MENU PRINCIPAL [3]\n'))
+            opcion = input('MENU DE CLIENTES\nREGISTRAR UN NUEVO CLIENTE [1]\nCONSULTAS Y REPORTES [2]\nVOLVER AL MENU PRINCIPAL [3]\n')
             if not(bool(re.match("[1-3]{1}", opcion))):
                 print('NO CUMPLE CON EL PATRON\n')
                 continue
