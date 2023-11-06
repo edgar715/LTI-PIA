@@ -1,0 +1,127 @@
+import pandas as pd
+from datetime import datetime
+import csv
+import openpyxl
+
+df = pd.DataFrame(columns=['Clave Única', 'Servicio', 'Costo'])
+
+while True:
+    opcion = int(input("Elige la opción que deseas (1: Agregar registro, 2: Buscar por Clave Única, 3: Buscar por Servicio, 4: Reporte de Servicios por Clave, 5: Reporte de Servicios por Nombre, 6: Salir): "))
+    
+    if opcion == 1:
+      while True:
+          servicio = input("Ingrese el servicio: ").lower()
+          if not servicio.strip():
+            print("Este campo no puede estar vacio")
+          elif not servicio.isalpha():
+            print("Debes ingresar el nombre del servicio NO su costo")
+          else:
+            costo = input("Ingrese el costo: ")
+
+            if not costo.isdigit():
+                print("El costo debe ser un número. Intente nuevamente.")
+                continue
+
+            costo = float(costo)
+
+            clave_unica = len(df) + 1
+
+            df = df.append({'Clave Única': clave_unica, 'Servicio': servicio, 'Costo': costo}, ignore_index=True)
+
+            print(f"Registro agregado con clave única: {clave_unica}")
+
+            agregar_servicio = input("¿Desea agregar otro servicio? (Sí/No): ").lower()
+            if agregar_servicio == "no":
+              break
+            elif agregar_servicio != "si":
+              print("Opción no válida. Selecciona 'Sí' o 'No'.")
+              continue
+
+
+
+    elif opcion == 2:
+        clave_buscar = int(input("Ingrese la Clave Única que deseas buscar: "))
+        resultado = df[df['Clave Única'] == clave_buscar]
+        
+        if not resultado.empty:
+            print("Datos encontrados:")
+            print(resultado)
+        else:
+            print(f"No se encontraron datos para la Clave Única {clave_buscar}.")
+
+    elif opcion == 3:
+        servicio_buscar = input("Ingrese el nombre del servicio que deseas buscar: ").lower()
+        resultado = df[df['Servicio'] == servicio_buscar]
+        
+        if not resultado.empty:
+            print("Datos encontrados:")
+            print(resultado)
+        else:
+            print(f"No se encontraron datos para el servicio '{servicio_buscar}'.")
+
+    elif opcion == 4:
+        forma_exportar = input("Desea exportarlo en CSV o archivo Excel: ").strip().lower()
+        if forma_exportar == "excel":
+            print("Reporte de Servicios por Clave:")
+            print(df.sort_values(by=['Clave Única']))
+
+            exportar = input("¿Desea exportar el reporte a un archivo Excel? (Si/No): ").strip().lower()
+            if exportar == 'si':
+                fecha_reporte = datetime.now().strftime("%m_%d_%Y")
+                nombre_archivo = f"ReporteServiciosPorClave_{fecha_reporte}.xlsx"
+                df.sort_values(by=['Clave Única']).to_excel(nombre_archivo, index=False)
+                print(f"Reporte exportado como '{nombre_archivo}'")
+            elif exportar == 'no':
+                pass
+            else:
+                print("Opción no válida. No se exportará el reporte.")
+        elif forma_exportar == "csv":
+            print("Reporte de Servicios por Clave:")
+            print(df.sort_values(by=['Clave Única']))
+
+            exportar = input("¿Desea exportar el reporte a un archivo CSV? (Si/No): ").strip().lower()
+            if exportar == 'si':
+                fecha_reporte = datetime.now().strftime("%m_%d_%Y")
+                nombre_archivo = f"ReporteServiciosPorClave_{fecha_reporte}.csv"
+                df.sort_values(by=['Clave Única']).to_csv(nombre_archivo, index=False)
+                print(f"Reporte exportado como '{nombre_archivo}'")
+            elif exportar == 'no':
+                pass
+            else:
+                print("Opción no válida. No se exportará el reporte.")
+
+    elif opcion == 5:
+        forma_exportar = input("Desea exportarlo en CSV o archivo Excel: ").strip().lower()
+        if forma_exportar == "excel":
+            print("Reporte de Servicios por Nombre:")
+            print(df.sort_values(by=['Servicio']))
+
+            exportar = input("¿Desea exportar el reporte a un archivo Excel? (Si/No): ").strip().lower()
+            if exportar == 'si':
+                fecha_reporte = datetime.now().strftime("%m_%d_%Y")
+                nombre_archivo = f"ReporteServiciosPorNombre_{fecha_reporte}.xlsx"
+                df.sort_values(by=['Servicio']).to_excel(nombre_archivo, index=False)
+                print(f"Reporte exportado como '{nombre_archivo}'")
+            elif exportar == 'no':
+                pass
+            else:
+                print("Opción no válida. No se exportará el reporte.")
+        elif forma_exportar == "csv":
+            print("Reporte de Servicios por Nombre:")
+            print(df.sort_values(by=['Servicio']))
+
+            exportar = input("¿Desea exportar el reporte a un archivo CSV? (Si/No): ").strip().lower()
+            if exportar == 'si':
+                fecha_reporte = datetime.now().strftime("%m_%d_%Y")
+                nombre_archivo = f"ReporteServiciosPorNombre_{fecha_reporte}.csv"
+                df.sort_values(by=['Servicio']).to_csv(nombre_archivo, index=False)
+                print(f"Reporte exportado como '{nombre_archivo}'")
+            elif exportar == 'no':
+                pass
+            else:
+                print("Opción no válida. No se exportará el reporte.")
+        
+    elif opcion == 6:
+        break
+    else:
+        print("Opción no válida. Por favor, elige una opción válida.")
