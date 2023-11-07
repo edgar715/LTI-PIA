@@ -1,0 +1,419 @@
+import datetime as dt
+import re
+import csv
+import pandas as pd
+from openpyxl.styles import Alignment
+import xlsxwriter
+
+clave = 0
+fecha_actual = dt.datetime.now()
+fecha_maxima = fecha_actual.strftime("%d/%m/%Y")
+fecha_hoy = dt.datetime.strptime(fecha_maxima, "%d/%m/%Y")
+rfc_dict = {}
+dic_principal = {}
+papelera = {}
+
+def no_cumple_condicion(valor):
+    regex = r'^[a-zA-Z]{4}[0-9]{4}[a-zA-Z]{2}[0-9]{1}$'
+    return not bool(re.match(regex, valor))
+
+def validar_email(email):
+    email_pattern = r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$"
+    return not bool(re.match(email_pattern, email))
+
+
+def generar_folio():
+    ultimo_folio = max(dic_principal.keys()) if dic_principal else 0
+    nuevo_folio = ultimo_folio + 1
+    return nuevo_folio
+
+dic_principal = {}
+rfc_dict = {}
+papelera = {}
+clientes = {}  # Diccionario para almacenar información de los clientes
+servicios = {}  # Diccionario para almacenar información de los servicios
+
+clientes = {
+    1: {"nombre": "Cliente 1", "rfc": "RFC1", "correo": "cliente1@example.com"},
+    2: {"nombre": "Cliente 2", "rfc": "RFC2", "correo": "cliente2@example.com"},
+    # Agregar más clientes
+}
+
+servicios = {
+    1: {"nombre": "Servicio 1", "precio": 100.00},
+    2: {"nombre": "Servicio 2", "precio": 150.00},
+    # Agregar más servicios
+}
+
+# Función para registrar una nota
+def registrar_nota():
+    global clave
+    print("REGISTRO DE NOTA")
+    folio = generar_folio()
+    fecha_inicio = fecha_actual
+
+    while True:
+        print(f"Fecha actual: {fecha_maxima}")
+        fecha_nota = input("FECHA DE LA NOTA\nDEBERA CUMPLIR EL SIGUIENTE FORMATO: DD/MM/AAAA\n")
+        if fecha_nota.strip() == "":
+            print('NO SE DEBE OMITIR EL DATO\n')
+            continue
+        try:
+            fecha_nota = dt.datetime.strptime(fecha_nota, "%d/%m/%Y")
+            if fecha_nota > fecha_actual:
+                print("\nLA FECHA DE LA NOTA DEBE SER MENOR O IGUAL A LA FECHA DE HOY\n")
+                continue
+        except Exception:
+            print("\nFORMATO DE FECHA INCORRECTO. INTENTA LO SIGUIENTE\nDD/MM/AAAA.\n")
+            continue
+        break
+
+    print("Selecciona un cliente:")
+    for cliente_id, cliente_info in clientes.items():
+        print(f"{cliente_id}: {cliente_info['nombre']} (RFC: {cliente_info['rfc']}, Correo: {cliente_info['correo']})")
+
+    while True:
+        cliente_id = int(input("Número del cliente seleccionado: "))
+        if cliente_id not in clientes:
+            print("Cliente no válido. Intente de nuevo.")
+            continue
+        cliente = clientes[cliente_id]
+        break
+
+    clave += 1
+
+    while True:
+        rfc = input("\nINGRESE EL RFC DE LA PERSONA:\n")
+        rfc = rfc.upper()
+        rfc_dict[clave] = rfc
+        if no_cumple_condicion(rfc):
+            print('\nEL RFC DEBE CONTENER LO SIGUIENTE')
+            print('1: DEBE CONTENER 4 LETRAS')
+            print('2: DESPUES DEBE CONTENER 4 NUMEROS')
+            print('3: DESPUES DEBE CONTENER 2 LETRAS')
+            print('4: FINALMENTE DEBE CONTENER 1 NUMERO')
+            continue
+        else:
+            break
+
+    while True:
+        correo_nota = input('\nINGRESA EL CORREO DEL CLIENTE:\n')
+        if correo_nota.strip() == "":
+            print('\nNO SE DEBE OMITIR EL DATO\n')
+            continue
+        if validar_email(correo_nota):
+            print('\nFORMATO INCORRECTO INTENTE DE NUEVO\n')
+            continue
+        else:
+            break
+
+    servicios_seleccionados = {}
+    monto_total = []
+
+    while True:
+        try:
+            servicio_elegido = input("\nPARA DEJAR DE INGRESAR SERVICIOS INGRESE 0\nELIGE EL SERVICIO A REALIZAR:\n")
+            if servicio_elegido == "":
+                print("No se debe omitir el dato")
+                continue
+            if servicio_elegido == "0":
+                break
+        except Exception:
+            print('ERROR INTENTE DE NUEVO')
+            continue
+
+        while True:
+            try:
+                monto = input("\nINGRESA EL MONTO DEL SERVICIO:\n")
+                if monto == "":
+                    print('NO SE DEBE OMITIR EL DATO\n')
+                    continue
+                if not bool(re.match(r"^[0-9]+(\.[0-9]{1,2})?$", monto)):
+                    print('NO CUMPLE CON EL FORMATO\nDEBE INCLUIR ENTEROS Y 2 DECIMALES')
+                    continue
+                monto = float(monto)
+            except ValueError:
+                print('SE DEBE INGRESAR SOLO DIGITOS')
+                continue
+            else:
+                if monto <= 0:
+                    print('EL MONTO DEBE SER MAYOR A CERO\n')
+                    continue
+                servicio = servicios[servicio_elegido]
+                servicios_seleccionados[servicio["nombre"]] = monto
+                monto_total.append(monto)
+
+            
+            otro_servicio = input("¿Desea agregar otro servicio? (S/N): ")
+            if otro_servicio.lower() != "s":
+                break
+
+    monto_total = sum(monto_total)
+    nueva_nota = [fecha_nota.strftime("%d/%m/%Y"), cliente["nombre"], rfc, correo_nota, servicios_seleccionados, monto_total]
+    dic_principal[folio] = nueva_nota
+
+    print(f"Nota registrada con éxito. Folio: {folio}")
+    print("Detalles de la nota:")
+    print(f"Folio: {folio}")
+    print(f"FECHA ACTUAL: {fecha_inicio.strftime('%d/%m/%Y')}")
+    print(f"FECHA DE LA NOTA: {fecha_nota.strftime('%d/%m/%Y')}")
+    print(f"CLIENTE: {cliente['nombre']}")
+    print(f'RFC del Cliente: {rfc}')
+    print(f'CORREO DEL CLIENTE: {correo_nota}')
+    for servicio, monto in servicios_seleccionados.items():
+        print(f'{servicio} CON UN COSTO DE: {monto}')
+    print(f'Monto Total: {monto_total}')
+
+# Función para cancelar una nota
+def cancelar_nota():
+    print("CANCELAR UNA NOTA")
+    while True:
+        try:
+            folio_cancelar = int(input("Ingresa el folio de la nota que deseas cancelar (0 para salir): "))
+            if folio_cancelar == 0:
+                return
+            if folio_cancelar in dic_principal:
+                nota_cancelar = dic_principal.pop(folio_cancelar)
+                papelera[folio_cancelar] = nota_cancelar
+                print(f"Nota con folio {folio_cancelar} cancelada exitosamente.")
+                break
+            else:
+                print("Folio no encontrado. Intente de nuevo.")
+        except ValueError:
+            print("Debes ingresar un número entero válido.")
+
+# Función para recuperar una nota cancelada
+def recuperar_nota_cancelada():
+    print("RECUPERAR UNA NOTA CANCELADA")
+    while True:
+        try:
+            folio_recuperar = int(input("Ingresa el folio de la nota que deseas recuperar (0 para salir): "))
+            if folio_recuperar == 0:
+                return
+            if folio_recuperar in papelera:
+                nota_recuperar = papelera.pop(folio_recuperar)
+                dic_principal[folio_recuperar] = nota_recuperar
+                print(f"Nota con folio {folio_recuperar} recuperada exitosamente.")
+                break
+            else:
+                print("Folio no encontrado en la papelera. Intente de nuevo.")
+        except ValueError:
+            print("Debes ingresar un número entero válido.")
+
+# Función para consultar por período
+def consultar_periodo():
+    while True:
+        try:
+            fecha_inicio = input("\nINGRESE LA FECHA INICIAL: DD/MM/AAAA\n")
+            if fecha_inicio.strip() == "":
+                fecha_inicio = "01/01/2000"
+            fecha_inicio = dt.datetime.strptime(fecha_inicio, "%d/%m/%Y")
+        except ValueError:
+            print("\nFormato de fecha incorrecto, ingrese la fecha en el formato DD/MM/AAAA\n")
+
+        while True:
+            try:
+                fecha_final = input("INGRESE LA FECHA FINAL: DD/MM/AAAA\n")
+                if fecha_final.strip() == "":
+                    fecha_final = fecha_hoy
+                else:
+                    fecha_final = dt.datetime.strptime(fecha_final, "%d/%m/%Y")
+            except ValueError:
+                print("Formato de fecha incorrecto, ingrese la fecha en el formato (DD/MM/AAAA)")
+            else:
+                break
+        if fecha_inicio > fecha_final:
+            print('\nLA FECHA INICIO DEBE SER MENOR A LA FECHA FINAL\n')
+            continue
+        break
+
+    for folio, recuperador in dic_principal.items():
+        fecha_inicio_diccionario = dt.datetime.strptime(recuperador[0], '%d/%m/%Y')
+
+        if (fecha_inicio <= fecha_inicio_diccionario <= fecha_final):
+            for folio, notas in dic_principal.items():
+                print('FOLIO   FECHA DE LA NOTA    CLIENTE    RFC            CORREO         MONTO TOTAL')
+                print(f'{folio}\t{notas[0]}\t\t{notas[1]}\t{notas[2]}\t{notas[3]}\t\t{notas[5]}')
+                print(f'SERVICIOS Y PRECIOS:\n{notas[4]}\n')
+
+# Función para consultar por folio
+def consultar_folio():
+    while True:
+        try:
+            consultar = input("Escribe el id de la nota que buscas\n[0] SALIDA")
+            if (consultar == ""):
+                print('no se debe omitir el dato')
+                continue
+            if not(bool(re.match("^[0-9]{1,9}$", consultar))):
+                print("No se ingreso un digito")
+                continue
+            consultar = int(consultar)
+            if (consultar == 0):
+                return
+        except ValueError:
+            print("Ingreso un valor no valido")
+        else:
+            if consultar in dic_principal:
+                recuperador = dic_principal[consultar]
+                print('\nFOLIO\tCLIENTE\t\tFECHA DE PEDIDO\t\tFECHA DE ENTREGA\t\tSERVICIO\t\tMONTO')
+                print(f'{consultar}:\t{recuperador[0]}\t\t{recuperador[1]}\t\t{recuperador[2]}\t\t{recuperador[3]}\t\t{recuperador[4] }:\t{recuperador[5]}')
+            if consultar not in dic_principal:
+                print("No existe registros\nEstos son los folios que tenemos en nuestra base de datos")
+                print(list(dic_principal.keys()))
+
+# Función para exportar a Excel
+def exportar_a_excel(rfc, notas_cliente):
+    if not notas_cliente:
+        return
+
+    filename = f"{rfc}_{fecha_actual.strftime('%Y%m%d')}.xlsx"
+
+    workbook = xlsxwriter.Workbook(filename)
+    worksheet = workbook.add_worksheet()
+
+    encabezados = ["Folio", "Fecha de la Nota", "Cliente", "RFC", "Correo", "Monto Total"]
+    columna = 0
+    for encabezado in encabezados:
+        worksheet.write(0, columna, encabezado)
+        columna += 1
+
+    fila = 1
+    for nota in notas_cliente:
+        columna = 0
+        for dato in nota[:6]:
+            worksheet.write(fila, columna, str(dato))
+            columna += 1
+        fila += 1
+
+    workbook.close()
+
+    print(f"\nSe ha exportado la información a '{filename}' en la ubicación actual.")
+
+def consultar_por_rfc(rfc):
+    notas_cliente = []
+    promedio_monto = 0.0
+
+    for folio, nota in dic_principal.items():
+        if nota[2] == rfc:
+            notas_cliente.append(nota)
+            promedio_monto += nota[5]
+
+    if notas_cliente:
+        promedio_monto /= len(notas_cliente)
+        print(f"\nNotas para el cliente con RFC {rfc}:")
+        for nota in notas_cliente:
+            print(f"Folio: {folio}")
+            print(f"FECHA DE LA NOTA: {nota[0]}")
+            print(f"CLIENTE: {nota[1]}")
+            print(f'RFC del Cliente: {nota[2]}')
+            print(f'CORREO DEL CLIENTE: {nota[3]}')
+            print(f'SERVICIOS Y SUS PRECIOS\n{nota[4]}')
+            print(f'MONTO TOTAL: {nota[5]}\n')
+
+        exportar = input("¿Desea exportar esta información a un archivo de Excel? (S/N): ")
+        if exportar.lower() == "s":
+            exportar_a_excel(rfc, notas_cliente)
+
+        print(f"\nMonto promedio de las notas para el cliente con RFC {rfc}: {promedio_monto:.2f}")
+    else:
+        print(f"No se encontraron notas para el cliente con RFC {rfc}")
+
+# Función para consultar por RFC
+def consultar_cliente():
+    rfc_list = sorted(set(rfc_dict.values()))
+
+    for idx, rfc in enumerate(rfc_list, start=1):
+        print(f"{idx}: {rfc}")
+
+    while True:
+        try:
+            opcion = int(input('Selecciona el número correspondiente al RFC a consultar (0 para salir): '))
+            if opcion == 0:
+                return
+            if 1 <= opcion <= len(rfc_list):
+                selected_rfc = rfc_list[opcion - 1]
+                consultar_por_rfc(selected_rfc)
+            else:
+                print('Selección no válida. Intente de nuevo.')
+        except ValueError:
+            print('Debe ingresar un número válido.')
+
+# Función para consultas y reportes
+def consultas_reportes():
+    while True:
+        print('COMO DESEAS CONSULTAR EN LA BASE DE DATOS:\n')
+        print('[1] POR PERIODO\n[2] POR FOLIO\n[3] POR CLIENTE')
+        try:
+            opcion = input('SELECCIONA: ')
+            if (opcion.strip() == ""):
+                print('No se debe omitir el dato')
+                continue
+            if not(bool(re.match("^[1-3]{1}$", opcion))):
+                print('No cumple con el patrón')
+                continue
+            opcion = int(opcion)
+            if opcion == 1:
+                consultar_periodo()
+            elif opcion == 2:
+                consultar_folio()
+            elif opcion == 3:
+                consultar_cliente()
+        except ValueError:
+            print('Debes ingresar un dato entero')
+        break
+def guardar_dic_principal(dic):
+    with open("dic_principal.csv", "w", newline="") as csvfile:
+        fieldnames = ["Folio", "Fecha de la Nota", "Cliente", "RFC", "Correo", "Servicios", "Monto Total"]
+        writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
+        writer.writeheader()
+        for folio, nota in dic.items():
+            writer.writerow({
+                "Folio": folio,
+                "Fecha de la Nota": nota[0],
+                "Cliente": nota[1],
+                "RFC": nota[2],
+                "Correo": nota[3],
+                "Servicios": nota[4],
+                "Monto Total": nota[5]
+            })
+    print("Diccionario principal guardado en 'dic_principal.csv'")
+
+# Función para el menú principal
+def menu_principal():
+    while True:
+        print("\nMenú Principal")
+        print("1. Registrar una nota")
+        print("2. Consultas y Reportes")
+        print("3. Cancelar una nota")
+        print("4. Recuperar una nota cancelada")
+        print("5. Salir\n")
+
+        try:
+            opcion = input("Ingresa el número de la opción que deseas seleccionar: ")
+            if opcion.strip() == "":
+                print('No se debe omitir el dato')
+                continue
+            opcion = int(opcion)
+        except ValueError:
+            print("Debes ingresar un número entero.")
+        else:
+            try:
+                if opcion == 1:
+                    registrar_nota()
+                elif opcion == 2:
+                    consultas_reportes()
+                elif opcion == 3:
+                    cancelar_nota()
+                elif opcion == 4:
+                    recuperar_nota_cancelada()
+                elif opcion == 5:
+                    guardar_dic_principal(dic_principal)
+                    print("Gracias por utilizar el sistema. ¡Hasta luego!")
+                    return
+                else:
+                    print("Opción no válida. Por favor, elige una opción del 1 al 5.")
+            except Exception as e:
+                print(f"Ha ocurrido un error: {str(e)}")
+
+if __name__ == "__main__":
+    menu_principal()
