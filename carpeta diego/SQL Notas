@@ -1,0 +1,212 @@
+import datetime as dt
+import re
+import csv
+import sqlite3
+
+clave = 0
+fecha_actual = dt.datetime.now()
+fecha_maxima = fecha_actual.strftime("%d/%m/%Y")
+rfc_dict = {}
+dic_principal = {}
+papelera = {}
+
+def generar_folio():
+    return len(dic_principal) + 1
+
+def no_cumple_condicion(rfc):
+    if not bool(re.match(r'^[A-Z]{4}[0-9]{6}[A-Z0-9]{3}$', rfc)):
+        print('Formato de RFC incorrecto.')
+        return True
+    return False
+
+def validar_email(email):
+    if not bool(re.match(r'^\S+@\S+\.\S+$', email)):
+        print('Formato de correo electrónico incorrecto.')
+        return True
+    return False
+
+def guardar_dic_principal(dic):
+    with open("dic_principal.csv", "w", newline="") as csvfile:
+        fieldnames = ["Folio", "Fecha de la Nota", "Cliente", "RFC", "Correo", "Servicios", "Monto Total"]
+        writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
+        writer.writeheader()
+        for folio, nota in dic.items():
+            writer.writerow({
+                "Folio": folio,
+                "Fecha de la Nota": nota[0],
+                "Cliente": nota[1],
+                "RFC": nota[2],
+                "Correo": nota[3],
+                "Servicios": nota[4],
+                "Monto Total": nota[5]
+            })
+    print("Diccionario principal guardado en 'dic_principal.csv'")
+
+    # Crear conexión a la base de datos SQLite
+    conn = sqlite3.connect('notas.db')
+    cursor = conn.cursor()
+
+    # Crear tabla si no existe
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS Notas (
+            Folio INTEGER PRIMARY KEY,
+            Fecha_Nota TEXT,
+            Cliente TEXT,
+            RFC TEXT,
+            Correo TEXT,
+            Servicios TEXT,
+            Monto_Total REAL
+        )
+    ''')
+
+    # Guardar datos en la base de datos
+    for folio, nota in dic.items():
+        cursor.execute('''
+            INSERT INTO Notas (Folio, Fecha_Nota, Cliente, RFC, Correo, Servicios, Monto_Total)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+        ''', (folio, nota[0], nota[1], nota[2], nota[3], str(nota[4]), nota[5]))
+
+    # Commit y cerrar conexión
+    conn.commit()
+    conn.close()
+
+    print("Datos guardados en la base de datos SQLite.")
+
+def registrar_nota():
+    global clave
+    print("REGISTRO DE NOTA")
+    folio = generar_folio()
+    fecha_inicio = fecha_actual
+
+    while True:
+        print(f"Fecha actual: {fecha_maxima}")
+        fecha_nota = input("FECHA DE LA NOTA\nDEBERA CUMPLIR EL SIGUIENTE FORMATO: DD/MM/AAAA\n")
+
+        if fecha_nota.strip() == "":
+            print('NO SE DEBE OMITIR EL DATO\n')
+            continue
+
+        try:
+            fecha_nota = dt.datetime.strptime(fecha_nota, "%d/%m/%Y")
+
+            if fecha_nota > fecha_actual:
+                print("\nLA FECHA DE LA NOTA DEBE SER MENOR O IGUAL A LA FECHA DE HOY\n")
+                continue
+
+        except Exception:
+            print("\nFORMATO DE FECHA INCORRECTO. INTENTA LO SIGUIENTE\nDD/MM/AAAA.\n")
+            continue
+
+        break
+
+    while True:
+        cliente = input("ESCRIBE EL NOMBRE DEL CLIENTE:\n")
+
+        if cliente.strip() == "":
+            print("NO SE DEBE OMITIR EL DATO\n")
+            continue
+
+        break
+
+    clave += 1
+
+    while True:
+        rfc = input("\nINGRESE EL RFC DE LA PERSONA:\n")
+        rfc = rfc.upper()
+        rfc_dict[clave] = rfc
+
+        if no_cumple_condicion(rfc):
+            print('\nEL RFC DEBE CONTENER LO SIGUIENTE')
+            print('1: DEBE CONTENER 4 LETRAS')
+            print('2: DESPUES DEBE CONTENER 4 NUMEROS')
+            print('3: DESPUES DEBE CONTENER 2 LETRAS')
+            print('4: FINALMENTE DEBE CONTENER 1 NUMERO')
+            continue
+        else:
+            break
+
+    while True:
+        correo_nota = input('\nINGRESA EL CORREO DEL CLIENTE:\n')
+
+        if correo_nota.strip() == "":
+            print('\nNO SE DEBE OMITIR EL DATO\n')
+            continue
+
+        if validar_email(correo_nota):
+            print('\nFORMATO INCORRECTO INTENTE DE NUEVO\n')
+            continue
+        else:
+            break
+
+    servicios = {}
+    monto_total = []
+
+    while True:
+        try:
+            servicio_elegido = input("\nPARA DEJAR DE INGRESAR SERVICIOS INGRESE 0\nELIGE EL SERVICIO A REALIZAR:\n")
+
+            if servicio_elegido == "":
+                print("No se debe omitir el dato")
+                continue
+
+            if servicio_elegido == "0":
+                break
+
+        except Exception:
+            print('ERROR INTENTE DE NUEVO')
+            continue
+
+        while True:
+            try:
+                monto = input("\nINGRESA EL MONTO DEL SERVICIO:\n")
+
+                if monto == "":
+                    print('NO SE DEBE OMITIR EL DATO\n')
+                    continue
+
+                if not bool(re.match(r"^[0-9]+(\.[0-9]{1,2})?$", monto)):
+                    print('NO CUMPLE CON EL FORMATO\nDEBE INCLUIR ENTEROS Y 2 DECIMALES')
+                    continue
+
+                monto = float(monto)
+
+            except ValueError:
+                print('SE DEBE INGRESAR SOLO DIGITOS')
+                continue
+
+            else:
+                if monto <= 0:
+                    print('EL MONTO DEBE SER MAYOR A CERO\n')
+                    continue
+
+                servicios[servicio_elegido] = monto
+
+                monto_total.append(monto)
+
+                # Preguntar si desea agregar otro servicio
+                otro_servicio = input("¿Desea agregar otro servicio? (S/N): ")
+
+                if otro_servicio.lower() != "s":
+                    break
+
+    monto_total = sum(monto_total)
+
+    nueva_nota = [fecha_nota.strftime("%d/%m/%Y"), cliente, rfc, correo_nota, servicios, monto_total]
+    dic_principal[folio] = nueva_nota
+
+    print(f"Nota registrada con éxito. Folio: {folio}")
+    print("Detalles de la nota:")
+    print(f"Folio: {folio}")
+    print(f"FECHA ACTUAL: {fecha_inicio.strftime('%d/%m/%Y')}")
+    print(f"FECHA DE LA NOTA: {fecha_nota.strftime('%d/%m/%Y')}")
+    print(f"CLIENTE: {cliente}")
+    print(f'RFC del Cliente: {rfc}')
+    print(f'CORREO DEL CLIENTE: {correo_nota}')
+
+    for servicio, monto in servicios.items():
+        print(f'{servicio} CON UN COSTO DE: {monto}')
+
+    print(f'Monto Total: {monto_total}')
+
+registrar_nota()
+
