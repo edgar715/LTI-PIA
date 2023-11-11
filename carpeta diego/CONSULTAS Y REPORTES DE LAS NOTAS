@@ -1,1 +1,24 @@
 #Consultas y reportes de las notas
+import datetime
+
+def consultar_por_periodo(fecha_inicial=None, fecha_final=None):
+    if fecha_inicial is None:
+        fecha_inicial = datetime.date(2000, 1, 1)
+        print("Se asumió la fecha inicial como 01/01/2000.")
+
+    if fecha_final is None:
+        fecha_final = datetime.date.today()
+        print(f"Se asumió la fecha final como {fecha_final}.")
+
+    
+    notas_en_periodo = obtener_notas_en_periodo(fecha_inicial, fecha_final)
+
+    if notas_en_periodo:
+        mostrar_reporte(notas_en_periodo)
+        opcion = input("¿Desea exportar el reporte? (Sí/No): ")
+        if opcion.lower() == "si":
+            exportar_reporte(notas_en_periodo, fecha_inicial, fecha_final)
+    else:
+        print("No hay notas emitidas para el período especificado.")
+
+
