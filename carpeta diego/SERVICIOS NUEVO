@@ -1,1 +1,132 @@
+import sqlite3
+import csv
+from datetime import datetime
+
+class Servicio:
+    def __init__(self, clave, nombre, costo, activo=True):
+        self.clave = clave
+        self.nombre = nombre
+        self.costo = costo
+        self.activo = activo
+
+class Taller:
+    def __init__(self, db_file="taller.db"):
+        self.db_file = db_file
+        self.connection = sqlite3.connect(db_file)
+        self.create_table()
+        self.servicios = self.load_servicios()
+
+    def create_table(self):
+        query = '''
+        CREATE TABLE IF NOT EXISTS servicios (
+            clave INTEGER PRIMARY KEY,
+            nombre TEXT NOT NULL,
+            costo REAL NOT NULL,
+            activo INTEGER NOT NULL
+        );
+        '''
+        with self.connection:
+            self.connection.execute(query)
+
+    def load_servicios(self):
+        query = 'SELECT * FROM servicios;'
+        with self.connection:
+            cursor = self.connection.execute(query)
+            servicios = [Servicio(row[0], row[1], row[2], bool(row[3])) for row in cursor.fetchall()]
+        return servicios
+
+    def agregar_servicio(self, nombre, costo):
+        nuevo_servicio = Servicio(None, nombre, costo)
+        query = 'INSERT INTO servicios (nombre, costo, activo) VALUES (?, ?, ?);'
+        with self.connection:
+            cursor = self.connection.execute(query, (nuevo_servicio.nombre, nuevo_servicio.costo, nuevo_servicio.activo))
+            nuevo_servicio.clave = cursor.lastrowid
+            self.servicios.append(nuevo_servicio)
+        print(f'Servicio agregado: {nuevo_servicio.nombre}')
+
+    def suspender_servicio(self, clave):
+        servicio = self.obtener_servicio_por_clave(clave)
+        if servicio:
+            servicio.activo = False
+            self.actualizar_servicio_en_db(servicio)
+            print(f'Servicio suspendido: {servicio.nombre}')
+        else:
+            print('Clave de servicio no válida.')
+
+    def recuperar_servicio(self, clave):
+        servicio = self.obtener_servicio_por_clave(clave)
+        if servicio:
+            servicio.activo = True
+            self.actualizar_servicio_en_db(servicio)
+            print(f'Servicio recuperado: {servicio.nombre}')
+        else:
+            print('Clave de servicio no válida.')
+
+    def actualizar_servicio_en_db(self, servicio):
+        query = 'UPDATE servicios SET nombre=?, costo=?, activo=? WHERE clave=?;'
+        with self.connection:
+            self.connection.execute(query, (servicio.nombre, servicio.costo, servicio.activo, servicio.clave))
+
+    def obtener_servicio_por_clave(self, clave):
+        for servicio in self.servicios:
+            if servicio.clave == clave:
+                return servicio
+        return None
+
+    def exportar_reporte(self, ordenado_por_clave=True):
+        servicios_ordenados = sorted(self.servicios, key=lambda x: x.clave) if ordenado_por_clave else sorted(self.servicios, key=lambda x: x.nombre)
+        fecha_reporte = datetime.now().strftime("%m_%d_%Y")
+        nombre_archivo = f'ReporteServiciosPorClave_{fecha_reporte}.csv' if ordenado_por_clave else f'ReporteServiciosPorNombre_{fecha_reporte}.csv'
+
+        with open(nombre_archivo, 'w', newline='') as file:
+            writer = csv.writer(file)
+            writer.writerow(["Clave", "Nombre", "Costo", "Activo"])
+
+            for servicio in servicios_ordenados:
+                writer.writerow([servicio.clave, servicio.nombre, servicio.costo, servicio.activo])
+
+if __name__ == "__main__":
+    taller = Taller()
+
+    while True:
+        print("\nMenú Servicios:")
+        print("1. Agregar un servicio")
+        print("2. Suspender un servicio")
+        print("3. Recuperar un servicio")
+        print("4. Consultas y reportes de servicios")
+        print("5. Volver al menú principal")
+
+        opcion = input("Seleccione una opción: ")
+
+        if opcion == "1":
+            nombre = input("Ingrese el nombre del servicio: ")
+            costo = float(input("Ingrese el costo del servicio: "))
+            taller.agregar_servicio(nombre, costo)
+        elif opcion == "2":
+            clave = int(input("Ingrese la clave del servicio a suspender: "))
+            taller.suspender_servicio(clave)
+        elif opcion == "3":
+            clave = int(input("Ingrese la clave del servicio a recuperar: "))
+            taller.recuperar_servicio(clave)
+        elif opcion == "4":
+            print("\nConsultas y reportes de servicios:")
+            print("1. Listado de servicios ordenado por clave")
+            print("2. Listado de servicios ordenado por nombre")
+            print("3. Volver al menú anterior")
+
+            sub_opcion = input("Seleccione una opción: ")
+
+            if sub_opcion == "1":
+                taller.exportar_reporte(ordenado_por_clave=True)
+            elif sub_opcion == "2":
+                taller.exportar_reporte(ordenado_por_clave=False)
+            elif sub_opcion == "3":
+                continue
+            else:
+                print("Opción no válida. Intente de nuevo.")
+        elif opcion == "5":
+            print("Volviendo al menú principal.")
+            break
+        else:
+            print("Opción no válida. Intente de nuevo.")
 
