@@ -1,5 +1,6 @@
 import re
 import sys
+import datamine
 import sqlite3
 import pandas as pd
 from sqlite3 import Error
@@ -27,6 +28,26 @@ except Exception:
 
 #CREAR NOTAS (PARTE DE CHOCO)
 #CONSULTAS Y REPORTES DE LAS NOTAS (DIEGO)
+
+def consultar_por_periodo(fecha_inicial=None, fecha_final=None):
+    if fecha_inicial is None:
+        fecha_inicial = datetime.date(2000, 1, 1)
+        print("Se asumió la fecha inicial como 01/01/2000.")
+
+    if fecha_final is None:
+        fecha_final = datetime.date.today()
+        print(f"Se asumió la fecha final como {fecha_final}.")
+
+    
+    notas_en_periodo = obtener_notas_en_periodo(fecha_inicial, fecha_final)
+
+    if notas_en_periodo:
+        mostrar_reporte(notas_en_periodo)
+        opcion = input("¿Desea exportar el reporte? (Sí/No): ")
+        if opcion.lower() == "si":
+            exportar_reporte(notas_en_periodo, fecha_inicial, fecha_final)
+    else:
+        print("No hay notas emitidas para el período especificado.")
 #SUSPENDER UNA NOTA (JONA)
 #RECUPERAR UNA NOTA(EDGAR)
 
