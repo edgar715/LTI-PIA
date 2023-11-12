@@ -241,6 +241,7 @@ def ORDENAR_CLIENTES_NOMBRE():
         except Exception:
             print(f"OCURRIO UN PROBLEMA {sys.exc_info()[0]}")
             continue
+    opcion = int(opcion)
     if (opcion == 1):
         return clientes_df.to_csv(f"{nombre_csv}", header = True , index = True)
     elif (opcion == 2):
