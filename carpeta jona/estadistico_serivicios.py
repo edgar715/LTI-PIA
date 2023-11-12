@@ -6,8 +6,8 @@ fecha_inicial = input("Ingrese la fecha inicial del período a reportar (mm_dd_a
 fecha_final = input("Ingrese la fecha final del período a reportar (mm_dd_aaaa): ")
 
 query = '''
-    SELECT nombre, COUNT(*) as cantidad
-    FROM servicios
+    SELECT Servicio, COUNT(*) as cantidad
+    FROM services
     WHERE fecha_atencion BETWEEN ? AND ?
     GROUP BY nombre
     ORDER BY cantidad DESC
