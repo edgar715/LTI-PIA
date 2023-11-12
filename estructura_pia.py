@@ -2,81 +2,87 @@ import re
 import sys
 import datamine
 import sqlite3
+import os
 import pandas as pd
 from sqlite3 import Error
 from datetime import datetime
 
 #TABLAS Y BASE DE DATOS
-try:
-    with sqlite3.connect("TALLER_PIA.db") as conn:
-        cursor = conn.cursor()
-        
-        cursor.execute("CREATE TABLE IF NOT EXISTS clientes \
-        (clave_cliente INTEGER PRIMARY KEY, nombre TEXT NOT NULL, rfc TEXT NOT NULL, correo TEXT NOT NULL);")
-        
-        cursor.execute("CREATE TABLE IF NOT EXISTS notas \
-                        folio INTEGER PRIMARY KEY, \
-                        fecha TIMESTAMP, \
-                        clave_cliente INTEGER, \
-                        monto_pagar REAL, \
-                        FOREIGN KEY (clientes) REFERENCES clientes(clave_cliente) ")
-        try:
-        connection = sqlite3.connect(database_file)
-        return connection
-    except sqlite3.Error as e:
-        print(e)
-    return None
-
-
+def create_connection(database_file):
     try:
-        cursor = connection.cursor()
-        cursor.execute('''
-            CREATE TABLE IF NOT EXISTS services (
-                ClaveUnica INTEGER PRIMARY KEY,
-                Servicio TEXT NOT NULL,
-                Costo REAL NOT NULL,
-                Activo BOOLEAN NOT NULL
-            )
-        ''')
-        connection.commit()
+        print("Current working directory:", os.getcwd())
+
+        conn = sqlite3.connect(database_file)
+        print("Connection to the database successful.")
+        return conn
     except sqlite3.Error as e:
-        print(e)
+        print(f"Error connecting to the database: {e}")
+        return None
 
-
-    try:
-        cursor = connection.cursor()
-        cursor.execute('''
-            INSERT INTO services (Servicio, Costo, Activo)
-            VALUES (?, ?, ?)
-        ''', (servicio, costo, activo))
-        connection.commit()
-        return cursor.lastrowid  # Return the ClaveUnica of the inserted row
-    except sqlite3.Error as e:
-        print(e)
-    return None
-
-
-    try:
-        return pd.read_sql_query("SELECT * FROM services", connection)
-    except sqlite3.Error as e:
-        print(e)
-    return pd.DataFrame()
-
-
-    try:
-        cursor = connection.cursor()
-        cursor.execute('''
-            UPDATE services
-            SET Activo = ?
-            WHERE ClaveUnica = ?
-        ''', (activo, clave_unica))
-        connection.commit()
-    except sqlite3.Error as e:
-        print(e)
-
-database_file = 'services_database.db'
+database_file = 'TALLER_PIA.db'
 connection = create_connection(database_file)
 
+
+def create_tables(conn):
+    try:
+
+        with conn:
+            cursor = conn.cursor()
+            
+            cursor.execute("CREATE TABLE IF NOT EXISTS clientes \
+                (clave_cliente INTEGER PRIMARY KEY, nombre TEXT NOT NULL, rfc TEXT NOT NULL, correo TEXT NOT NULL);")
+            
+            cursor.execute("CREATE TABLE IF NOT EXISTS notas \
+                            (folio INTEGER PRIMARY KEY, \
+                            fecha TIMESTAMP, \
+                            clave_cliente INTEGER, \
+                            monto_pagar REAL, \
+                            FOREIGN KEY (clave_cliente) REFERENCES clientes(clave_cliente));")
+            
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS services (
+                    ClaveUnica INTEGER PRIMARY KEY,
+                    Servicio TEXT NOT NULL,
+                    Costo REAL NOT NULL,
+                    Activo BOOLEAN NOT NULL
+                );
+            ''')
+    except sqlite3.Error as e:
+        print(e)
+
+def insert_service(conn, servicio, costo, activo):
+    try:
+        with conn:
+            cursor = conn.cursor()
+            cursor.execute('''
+                INSERT INTO services (Servicio, Costo, Activo)
+                VALUES (?, ?, ?)
+            ''', (servicio, costo, activo))
+    except sqlite3.Error as e:
+        print(e)
+
+def get_all_services(conn):
+    try:
+        return pd.read_sql_query("SELECT * FROM services", conn)
+    except sqlite3.Error as e:
+        print(e)
+        return pd.DataFrame()
+
+def update_service(conn, activo, clave_unica):
+    try:
+        with conn:
+            cursor = conn.cursor()
+            cursor.execute('''
+                UPDATE services
+                SET Activo = ?
+                WHERE ClaveUnica = ?
+            ''', (activo, clave_unica))
+    except sqlite3.Error as e:
+        print(e)
+    
+
+database_file = 'TALLER_PIA.db'
+connection = create_connection(database_file)
 if connection is not None:
     create_table(connection)
 
@@ -116,147 +122,145 @@ def consultar_por_periodo(fecha_inicial=None, fecha_final=None):
 #SERVICIOS(JONA Y DIEGO)
 
     while True:
-        opcion = int(input("Elige la opción que deseas (1: Agregar registro, 2: Buscar por Clave Única, 3: Buscar por Servicio, 4: Reporte de Servicios por Clave, 5: Reporte de Servicios por Nombre, 6: Suspender un servicio, 7: Salir): "))
+     opcion = int(input("Elige la opción que deseas (1: Agregar registro, 2: Buscar por Clave Única, 3: Buscar por Servicio, 4: Reporte de Servicios por Clave, 5: Reporte de Servicios por Nombre, 6: Suspender un servicio, 7: Salir): "))
 
-        if opcion == 1:
-            while True:
-                servicio = input("Ingrese el servicio: ").lower()
-                if not servicio.strip():
-                    print("Este campo no puede estar vacío")
-                elif not servicio.isalpha():
-                    print("Debes ingresar el nombre del servicio NO su costo")
-                else:
-                    costo = input("Ingrese el costo: ")
-
-                    if not costo.isdigit():
-                        print("El costo debe ser un número. Intente nuevamente.")
-                        continue
-
-                    costo = float(costo)
-
-                    clave_unica = insert_service(connection, servicio, costo)
-                    print(f"Registro agregado con clave única: {clave_unica}")
-
-                    agregar_servicio = input("¿Desea agregar otro servicio? (Sí/No): ").lower()
-                    if agregar_servicio == "no":
-                        break
-                    elif agregar_servicio != "si":
-                        print("Opción no válida. Selecciona 'Sí' o 'No'.")
-                        continue
-
-        elif opcion == 2:
-            clave_buscar = int(input("Ingrese la Clave Única que deseas buscar: "))
-            resultado = df[df['ClaveUnica'] == clave_buscar]
-
-            if not resultado.empty:
-                print("Datos encontrados:")
-                print(resultado)
+     if opcion == 1:
+        while True:
+            servicio = input("Ingrese el servicio: ").lower()
+            if not servicio.strip():
+                print("Este campo no puede estar vacío")
+            elif not servicio.isalpha():
+                print("Debes ingresar el nombre del servicio NO su costo")
             else:
-                print(f"No se encontraron datos para la Clave Única {clave_buscar}.")
+                costo = input("Ingrese el costo: ")
 
-        elif opcion == 3:
-            servicio_buscar = input("Ingrese el nombre del servicio que deseas buscar: ").lower()
-            resultado = df[df['Servicio'] == servicio_buscar]
+                if not costo.isdigit():
+                    print("El costo debe ser un número. Intente nuevamente.")
+                    continue
 
-            if not resultado.empty:
-                print("Datos encontrados:")
-                print(resultado)
-            else:
-                print(f"No se encontraron datos para el servicio '{servicio_buscar}'.")
+                costo = float(costo)
 
-        elif opcion == 4:
-            forma_exportar = input("Desea exportarlo en CSV o archivo Excel: ").strip().lower()
-            if forma_exportar == "excel":
-                print("Reporte de Servicios por Clave:")
-                print(df.sort_values(by=['ClaveUnica']))
+                clave_unica = insert_service(connection, servicio, costo)
+                print(f"Registro agregado con clave única: {clave_unica}")
 
-                exportar = input("¿Desea exportar el reporte a un archivo Excel? (Si/No): ").strip().lower()
-                if exportar == 'si':
-                    fecha_reporte = datetime.now().strftime("%m_%d_%Y")
-                    nombre_archivo = f"ReporteServiciosPorClave_{fecha_reporte}.xlsx"
-                    df.sort_values(by=['ClaveUnica']).to_excel(nombre_archivo, index=False)
-                    print(f"Reporte exportado como '{nombre_archivo}'")
-                elif exportar == 'no':
-                    pass
-                else:
-                    print("Opción no válida. No se exportará el reporte.")
-            elif forma_exportar == "csv":
-                print("Reporte de Servicios por Clave:")
-                print(df.sort_values(by=['ClaveUnica']))
+                agregar_servicio = input("¿Desea agregar otro servicio? (Sí/No): ").lower()
+                if agregar_servicio == "no":
+                    break
+                elif agregar_servicio != "si":
+                    print("Opción no válida. Selecciona 'Sí' o 'No'.")
+                    continue
 
-                exportar = input("¿Desea exportar el reporte a un archivo CSV? (Si/No): ").strip().lower()
-                if exportar == 'si':
-                    fecha_reporte = datetime.now().strftime("%m_%d_%Y")
-                    nombre_archivo = f"ReporteServiciosPorClave_{fecha_reporte}.csv"
-                    df.sort_values(by=['ClaveUnica']).to_csv(nombre_archivo, index=False)
-                    print(f"Reporte exportado como '{nombre_archivo}'")
-                elif exportar == 'no':
-                    pass
-                else:
-                    print("Opción no válida. No se exportará el reporte.")
+     elif opcion == 2:
+        clave_buscar = int(input("Ingrese la Clave Única que deseas buscar: "))
+        resultado = df[df['ClaveUnica'] == clave_buscar]
 
-        elif opcion == 5:
-            forma_exportar = input("Desea exportarlo en CSV o archivo Excel: ").strip().lower()
-            if forma_exportar == "excel":
-                print("Reporte de Servicios por Nombre:")
-                print(df.sort_values(by=['Servicio']))
-
-                exportar = input("¿Desea exportar el reporte a un archivo Excel? (Si/No): ").strip().lower()
-                if exportar == 'si':
-                    fecha_reporte = datetime.now().strftime("%m_%d_%Y")
-                    nombre_archivo = f"ReporteServiciosPorNombre_{fecha_reporte}.xlsx"
-                    df.sort_values(by=['Servicio']).to_excel(nombre_archivo, index=False)
-                    print(f"Reporte exportado como '{nombre_archivo}'")
-                elif exportar == 'no':
-                    pass
-                else:
-                    print("Opción no válida. No se exportará el reporte.")
-            elif forma_exportar == "csv":
-                print("Reporte de Servicios por Nombre:")
-                print(df.sort_values(by=['Servicio']))
-
-                exportar = input("¿Desea exportar el reporte a un archivo CSV? (Si/No): ").strip().lower()
-                if exportar == 'si':
-                    fecha_reporte = datetime.now().strftime("%m_%d_%Y")
-                    nombre_archivo = f"ReporteServiciosPorNombre_{fecha_reporte}.csv"
-                    df.sort_values(by=['Servicio]).to_csv(nombre_archivo, index=False)
-                print(f"Reporte exportado como '{nombre_archivo}'")
-                elif exportar == 'no':
-                    pass
-                else:
-                    print("Opción no válida. No se exportará el reporte.")
-                
-        elif opcion == 6:
-            clave_suspender = int(input("Ingrese la Clave Única del servicio que desea suspender (o 0 para volver al menú anterior): "))
-
-            if clave_suspender == 0:
-                continue
-
-            servicio_a_suspender = df[df['ClaveUnica'] == clave_suspender]
-
-            if servicio_a_suspender.empty:
-                print(f"No se encontraron datos para la Clave Única {clave_suspender}.")
-                continue
-
-            print("Datos del servicio a suspender:")
-            print(servicio_a_suspender)
-
-            confirmacion = input("¿Desea suspender este servicio? (Sí/No): ").strip().lower()
-
-            if confirmacion == 'si':
-                update_service_status(connection, clave_suspender, False)
-                print(f"El servicio con Clave Única {clave_suspender} ha sido suspendido.")
-            elif confirmacion == 'no':
-                print("El servicio no ha sido suspendido.")
-            else:
-                print("Opción no válida. No se suspenderá el servicio.")
-                
-        elif opcion == 7:
-            connection.close()
-            break
-
+        if not resultado.empty:
+            print("Datos encontrados:")
+            print(resultado)
         else:
-            print("Opción no válida. Por favor, elige una opción válida.")
+            print(f"No se encontraron datos para la Clave Única {clave_buscar}.")
+
+     elif opcion == 3:
+        servicio_buscar = input("Ingrese el nombre del servicio que deseas buscar: ").lower()
+        resultado = df[df['Servicio'] == servicio_buscar]
+
+        if not resultado.empty:
+            print("Datos encontrados:")
+            print(resultado)
+        else:
+            print(f"No se encontraron datos para el servicio '{servicio_buscar}'.")
+
+     elif opcion == 4:
+        forma_exportar = input("Desea exportarlo en CSV o archivo Excel: ").strip().lower()
+        if forma_exportar == "excel":
+            print("Reporte de Servicios por Clave:")
+            print(df.sort_values(by=['ClaveUnica']))
+
+            exportar = input("¿Desea exportar el reporte a un archivo Excel? (Si/No): ").strip().lower()
+            if exportar == 'si':
+                fecha_reporte = datetime.now().strftime("%m_%d_%Y")
+                nombre_archivo = f"ReporteServiciosPorClave_{fecha_reporte}.xlsx"
+                df.sort_values(by=['ClaveUnica']).to_excel(nombre_archivo, index=False)
+                print(f"Reporte exportado como '{nombre_archivo}'")
+            elif exportar == 'no':
+                pass
+            else:
+                print("Opción no válida. No se exportará el reporte.")
+        elif forma_exportar == "csv":
+            print("Reporte de Servicios por Clave:")
+            print(df.sort_values(by=['ClaveUnica']))
+
+            exportar = input("¿Desea exportar el reporte a un archivo CSV? (Si/No): ").strip().lower()
+            if exportar == 'si':
+                fecha_reporte = datetime.now().strftime("%m_%d_%Y")
+                nombre_archivo = f"ReporteServiciosPorClave_{fecha_reporte}.csv"
+                df.sort_values(by=['ClaveUnica']).to_csv(nombre_archivo, index=False)
+                print(f"Reporte exportado como '{nombre_archivo}'")
+            elif exportar == 'no':
+                pass
+            else:
+                print("Opción no válida. No se exportará el reporte.")
+
+     elif opcion == 5:
+        forma_exportar = input("Desea exportarlo en CSV o archivo Excel: ").strip().lower()
+        if forma_exportar == "excel":
+            print("Reporte de Servicios por Nombre:")
+            print(df.sort_values(by=['Servicio']))
+
+            exportar = input("¿Desea exportar el reporte a un archivo Excel? (Si/No): ").strip().lower()
+            if exportar == 'si':
+                fecha_reporte = datetime.now().strftime("%m_%d_%Y")
+                nombre_archivo = f"ReporteServiciosPorNombre_{fecha_reporte}.xlsx"
+                df.sort_values(by=['Servicio']).to_excel(nombre_archivo, index=False)
+                print(f"Reporte exportado como '{nombre_archivo}'")
+            elif exportar == 'no':
+                pass
+            else:
+                print("Opción no válida. No se exportará el reporte.")
+        elif forma_exportar == "csv":
+            print("Reporte de Servicios por Nombre:")
+            print(df.sort_values(by=['Servicio']))
+
+            exportar = input("¿Desea exportar el reporte a un archivo CSV? (Si/No): ").strip().lower()
+            if exportar == 'si':
+                fecha_reporte = datetime.now().strftime("%m_%d_%Y")
+                nombre_archivo = f"ReporteServiciosPorNombre_{fecha_reporte}.csv"
+                df.sort_values(by=['Servicio']).to_csv(nombre_archivo, index=False)
+                print(f"Reporte exportado como '{nombre_archivo}'")
+            elif exportar == 'no':
+                pass
+            else:
+                print("Opción no válida. No se exportará el reporte.")
+
+     elif opcion == 6:
+        clave_suspender = int(input("Ingrese la Clave Única del servicio que desea suspender (o 0 para volver al menú anterior): "))
+
+
+        servicio_a_suspender = df[df['ClaveUnica'] == clave_suspender]
+
+        if servicio_a_suspender.empty:
+            print(f"No se encontraron datos para la Clave Única {clave_suspender}.")
+            continue
+
+        print("Datos del servicio a suspender:")
+        print(servicio_a_suspender)
+
+        confirmacion = input("¿Desea suspender este servicio? (Sí/No): ").strip().lower()
+
+        if confirmacion == 'si':
+            update_service(connection, clave_suspender, False)
+            print(f"El servicio con Clave Única {clave_suspender} ha sido suspendido.")
+        elif confirmacion == 'no':
+            print("El servicio no ha sido suspendido.")
+        else:
+            print("Opción no válida. No se suspenderá el servicio.")
+
+     elif opcion == 7:
+        connection.close()
+        break
+
+    else:
+        print("Opción no válida. Por favor, elige una opción válida.")
 
 #CLIENTES(EDGAR)
 fecha_hoy_cliente = dt.date.today()
