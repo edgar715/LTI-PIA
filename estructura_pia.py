@@ -20,20 +20,14 @@ try:
                         clave_cliente INTEGER, \
                         monto_pagar REAL, \
                         FOREIGN KEY (clientes) REFERENCES clientes(clave_cliente) ")
-        
-except Error as e:
-    print (e)
-except Exception:
-    print(f"Se produjo el siguiente error: {sys.exc_info()[0]}")
-def create_connection(database_file):
-    try:
+        try:
         connection = sqlite3.connect(database_file)
         return connection
     except sqlite3.Error as e:
         print(e)
     return None
 
-def create_table(connection):
+
     try:
         cursor = connection.cursor()
         cursor.execute('''
@@ -48,7 +42,7 @@ def create_table(connection):
     except sqlite3.Error as e:
         print(e)
 
-def insert_service(connection, servicio, costo, activo=True):
+
     try:
         cursor = connection.cursor()
         cursor.execute('''
@@ -61,14 +55,14 @@ def insert_service(connection, servicio, costo, activo=True):
         print(e)
     return None
 
-def get_all_services(connection):
+
     try:
         return pd.read_sql_query("SELECT * FROM services", connection)
     except sqlite3.Error as e:
         print(e)
     return pd.DataFrame()
 
-def update_service_status(connection, clave_unica, activo):
+
     try:
         cursor = connection.cursor()
         cursor.execute('''
@@ -87,7 +81,12 @@ if connection is not None:
     create_table(connection)
 
     df = get_all_services(connection)
+except Error as e:
+    print (e)
+except Exception:
+    print(f"Se produjo el siguiente error: {sys.exc_info()[0]}")
 
+    
 
 #CREAR NOTAS (PARTE DE CHOCO)
 #CONSULTAS Y REPORTES DE LAS NOTAS (DIEGO)
