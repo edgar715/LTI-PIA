@@ -313,7 +313,8 @@ def MENU_CLIENTES_PRINCIPAL():
         except Exception:
             print(f"OCURRIO UN PROBLEMA {sys.exc_info()[0]}\n")
             continue
-        else:
+        else
+            opcion = int(opcion)
             if (opcion == 1):
                 NUEVO_CLIENTE()
             elif (opcion == 2):
