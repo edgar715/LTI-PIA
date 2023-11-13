@@ -1,350 +1,10 @@
 import re
 import sys
-import datamine
+import datetime as dt
 import sqlite3
-import os
 import pandas as pd
 from sqlite3 import Error
-from datetime import datetime
 
-#TABLAS Y BASE DE DATOS
-def create_connection(database_file):
-    try:
-        print("Current working directory:", os.getcwd())
-
-        conn = sqlite3.connect(database_file)
-        print("Connection to the database successful.")
-        return conn
-    except sqlite3.Error as e:
-        print(f"Error connecting to the database: {e}")
-        return None
-
-database_file = 'TALLER_PIA.db'
-connection = create_connection(database_file)
-
-
-def create_tables(conn):
-    try:
-
-        with conn:
-            cursor = conn.cursor()
-            
-            cursor.execute("CREATE TABLE IF NOT EXISTS clientes \
-                (clave_cliente INTEGER PRIMARY KEY, nombre TEXT NOT NULL, rfc TEXT NOT NULL, correo TEXT NOT NULL);")
-            
-            cursor.execute("CREATE TABLE IF NOT EXISTS notas \
-                            (folio INTEGER PRIMARY KEY, \
-                            fecha TIMESTAMP, \
-                            clave_cliente INTEGER, \
-                            monto_pagar REAL, \
-                            FOREIGN KEY (clave_cliente) REFERENCES clientes(clave_cliente));")
-            
-            cursor.execute('''
-                CREATE TABLE IF NOT EXISTS services (
-                    ClaveUnica INTEGER PRIMARY KEY,
-                    Servicio TEXT NOT NULL,
-                    Costo REAL NOT NULL,
-                    Activo BOOLEAN NOT NULL
-                );
-            ''')
-    except sqlite3.Error as e:
-        print(e)
-
-def insert_service(conn, servicio, costo, activo):
-    try:
-        with conn:
-            cursor = conn.cursor()
-            cursor.execute('''
-                INSERT INTO services (Servicio, Costo, Activo)
-                VALUES (?, ?, ?)
-            ''', (servicio, costo, activo))
-    except sqlite3.Error as e:
-        print(e)
-
-def get_all_services(conn):
-    try:
-        return pd.read_sql_query("SELECT * FROM services", conn)
-    except sqlite3.Error as e:
-        print(e)
-        return pd.DataFrame()
-
-def update_service(conn, activo, clave_unica):
-    try:
-        with conn:
-            cursor = conn.cursor()
-            cursor.execute('''
-                UPDATE services
-                SET Activo = ?
-                WHERE ClaveUnica = ?
-            ''', (activo, clave_unica))
-    except sqlite3.Error as e:
-        print(e)
-    
-
-database_file = 'TALLER_PIA.db'
-connection = create_connection(database_file)
-if connection is not None:
-    create_table(connection)
-
-    df = get_all_services(connection)
-except Error as e:
-    print (e)
-except Exception:
-    print(f"Se produjo el siguiente error: {sys.exc_info()[0]}")
-
-    
-
-#CREAR NOTAS (PARTE DE CHOCO)
-database_file = 'notas.db'
-connection = create_connection(database_file)
-
-def create_detalles_notas(conn):
-    try:
-        with conn:
-            cursor = conn.cursor()
-            cursor.execute('''
-                CREATE TABLE IF NOT EXISTS detalles_notas (
-                    id INTEGER PRIMARY KEY,
-                    folio INTEGER,
-                    clave_servicio INTEGER,
-                    cantidad INTEGER,
-                    FOREIGN KEY (folio) REFERENCES notas(folio),
-                    FOREIGN KEY (clave_servicio) REFERENCES servicios(ClaveUnica)
-                );
-            ''')
-    except sqlite3.Error as e:
-        print(e)
-
-def insert_cliente(conn, nombre, rfc, correo):
-    try:
-        with conn:
-            cursor = conn.cursor()
-            cursor.execute('''
-                INSERT INTO clientes (nombre, rfc, correo)
-            ''', (nombre, rfc, correo))
-    except sqlite3.Error as e:
-        print(e)
-
-def get_clientes(conn):
-    try:
-        return pd.read_sql_query("SELECT * FROM clientes", conn)
-    except sqlite3.Error as e:
-        print(e)
-        return pd.DataFrame()
-
-def create_note(conn, clave_cliente):
-    try:
-        with conn:
-            cursor = conn.cursor()
-            fecha_actual = datetime.now()
-            monto_total = 0
-
-            cliente = cursor.execute("SELECT nombre FROM clientes WHERE clave_cliente = ?", (clave_cliente,)).fetchone()
-            if cliente is not None:
-                print(f"\nCreando nota para el cliente: {cliente[0]}\n")
-
-                print("Servicios disponibles:")
-                servicios_df = get_all_services(conn)
-                print(servicios_df)
-
-                detalles = []
-                while True:
-                    clave_servicio = input("Ingrese la clave del servicio (o 'fin' para terminar): ")
-                    if clave_servicio.lower() == 'fin':
-                        break
-
-                    servicio = servicios_df[servicios_df['ClaveUnica'] == int(clave_servicio)]
-                    if not servicio.empty:
-                        cantidad = int(input(f"Ingrese la cantidad de '{servicio['Servicio'].values[0]}': "))
-                        monto_total += servicio['Costo'].values[0] * cantidad
-                        detalles.append((clave_servicio, cantidad))
-                    else:
-                        print("Clave de servicio no válida. Intente nuevamente.")
-
-                cursor.execute('''
-                    INSERT INTO notas (fecha, clave_cliente, monto_pagar)
-                ''', (fecha_actual, clave_cliente, monto_total))
-                nota_folio = cursor.lastrowid
-
-                for clave_servicio, cantidad in detalles:
-                    cursor.execute('''
-                        INSERT INTO detalles_notas (folio, clave_servicio, cantidad)
-                    ''', (nota_folio, clave_servicio, cantidad))
-
-                print("\nNota creada exitosamente.")
-            else:
-                print(f"\nCliente con clave {clave_cliente} no encontrado.")
-    except sqlite3.Error as e:
-        print(e)
-        
-#CONSULTAS Y REPORTES DE LAS NOTAS (DIEGO)
-
-def consultar_por_periodo(fecha_inicial=None, fecha_final=None):
-    if fecha_inicial is None:
-        fecha_inicial = datetime.date(2000, 1, 1)
-        print("Se asumió la fecha inicial como 01/01/2000.")
-
-    if fecha_final is None:
-        fecha_final = datetime.date.today()
-        print(f"Se asumió la fecha final como {fecha_final}.")
-
-    
-    notas_en_periodo = obtener_notas_en_periodo(fecha_inicial, fecha_final)
-
-    if notas_en_periodo:
-        mostrar_reporte(notas_en_periodo)
-        opcion = input("¿Desea exportar el reporte? (Sí/No): ")
-        if opcion.lower() == "si":
-            exportar_reporte(notas_en_periodo, fecha_inicial, fecha_final)
-    else:
-        print("No hay notas emitidas para el período especificado.")
-#SUSPENDER UNA NOTA (JONA)
-#RECUPERAR UNA NOTA(EDGAR)
-
-#SERVICIOS(JONA Y DIEGO)
-
-    while True:
-     opcion = int(input("Elige la opción que deseas (1: Agregar registro, 2: Buscar por Clave Única, 3: Buscar por Servicio, 4: Reporte de Servicios por Clave, 5: Reporte de Servicios por Nombre, 6: Suspender un servicio, 7: Salir): "))
-
-     if opcion == 1:
-        while True:
-            servicio = input("Ingrese el servicio: ").lower()
-            if not servicio.strip():
-                print("Este campo no puede estar vacío")
-            elif not servicio.isalpha():
-                print("Debes ingresar el nombre del servicio NO su costo")
-            else:
-                costo = input("Ingrese el costo: ")
-
-                if not costo.isdigit():
-                    print("El costo debe ser un número. Intente nuevamente.")
-                    continue
-
-                costo = float(costo)
-
-                clave_unica = insert_service(connection, servicio, costo)
-                print(f"Registro agregado con clave única: {clave_unica}")
-
-                agregar_servicio = input("¿Desea agregar otro servicio? (Sí/No): ").lower()
-                if agregar_servicio == "no":
-                    break
-                elif agregar_servicio != "si":
-                    print("Opción no válida. Selecciona 'Sí' o 'No'.")
-                    continue
-
-     elif opcion == 2:
-        clave_buscar = int(input("Ingrese la Clave Única que deseas buscar: "))
-        resultado = df[df['ClaveUnica'] == clave_buscar]
-
-        if not resultado.empty:
-            print("Datos encontrados:")
-            print(resultado)
-        else:
-            print(f"No se encontraron datos para la Clave Única {clave_buscar}.")
-
-     elif opcion == 3:
-        servicio_buscar = input("Ingrese el nombre del servicio que deseas buscar: ").lower()
-        resultado = df[df['Servicio'] == servicio_buscar]
-
-        if not resultado.empty:
-            print("Datos encontrados:")
-            print(resultado)
-        else:
-            print(f"No se encontraron datos para el servicio '{servicio_buscar}'.")
-
-     elif opcion == 4:
-        forma_exportar = input("Desea exportarlo en CSV o archivo Excel: ").strip().lower()
-        if forma_exportar == "excel":
-            print("Reporte de Servicios por Clave:")
-            print(df.sort_values(by=['ClaveUnica']))
-
-            exportar = input("¿Desea exportar el reporte a un archivo Excel? (Si/No): ").strip().lower()
-            if exportar == 'si':
-                fecha_reporte = datetime.now().strftime("%m_%d_%Y")
-                nombre_archivo = f"ReporteServiciosPorClave_{fecha_reporte}.xlsx"
-                df.sort_values(by=['ClaveUnica']).to_excel(nombre_archivo, index=False)
-                print(f"Reporte exportado como '{nombre_archivo}'")
-            elif exportar == 'no':
-                pass
-            else:
-                print("Opción no válida. No se exportará el reporte.")
-        elif forma_exportar == "csv":
-            print("Reporte de Servicios por Clave:")
-            print(df.sort_values(by=['ClaveUnica']))
-
-            exportar = input("¿Desea exportar el reporte a un archivo CSV? (Si/No): ").strip().lower()
-            if exportar == 'si':
-                fecha_reporte = datetime.now().strftime("%m_%d_%Y")
-                nombre_archivo = f"ReporteServiciosPorClave_{fecha_reporte}.csv"
-                df.sort_values(by=['ClaveUnica']).to_csv(nombre_archivo, index=False)
-                print(f"Reporte exportado como '{nombre_archivo}'")
-            elif exportar == 'no':
-                pass
-            else:
-                print("Opción no válida. No se exportará el reporte.")
-
-     elif opcion == 5:
-        forma_exportar = input("Desea exportarlo en CSV o archivo Excel: ").strip().lower()
-        if forma_exportar == "excel":
-            print("Reporte de Servicios por Nombre:")
-            print(df.sort_values(by=['Servicio']))
-
-            exportar = input("¿Desea exportar el reporte a un archivo Excel? (Si/No): ").strip().lower()
-            if exportar == 'si':
-                fecha_reporte = datetime.now().strftime("%m_%d_%Y")
-                nombre_archivo = f"ReporteServiciosPorNombre_{fecha_reporte}.xlsx"
-                df.sort_values(by=['Servicio']).to_excel(nombre_archivo, index=False)
-                print(f"Reporte exportado como '{nombre_archivo}'")
-            elif exportar == 'no':
-                pass
-            else:
-                print("Opción no válida. No se exportará el reporte.")
-        elif forma_exportar == "csv":
-            print("Reporte de Servicios por Nombre:")
-            print(df.sort_values(by=['Servicio']))
-
-            exportar = input("¿Desea exportar el reporte a un archivo CSV? (Si/No): ").strip().lower()
-            if exportar == 'si':
-                fecha_reporte = datetime.now().strftime("%m_%d_%Y")
-                nombre_archivo = f"ReporteServiciosPorNombre_{fecha_reporte}.csv"
-                df.sort_values(by=['Servicio']).to_csv(nombre_archivo, index=False)
-                print(f"Reporte exportado como '{nombre_archivo}'")
-            elif exportar == 'no':
-                pass
-            else:
-                print("Opción no válida. No se exportará el reporte.")
-
-     elif opcion == 6:
-        clave_suspender = int(input("Ingrese la Clave Única del servicio que desea suspender (o 0 para volver al menú anterior): "))
-
-
-        servicio_a_suspender = df[df['ClaveUnica'] == clave_suspender]
-
-        if servicio_a_suspender.empty:
-            print(f"No se encontraron datos para la Clave Única {clave_suspender}.")
-            continue
-
-        print("Datos del servicio a suspender:")
-        print(servicio_a_suspender)
-
-        confirmacion = input("¿Desea suspender este servicio? (Sí/No): ").strip().lower()
-
-        if confirmacion == 'si':
-            update_service(connection, clave_suspender, False)
-            print(f"El servicio con Clave Única {clave_suspender} ha sido suspendido.")
-        elif confirmacion == 'no':
-            print("El servicio no ha sido suspendido.")
-        else:
-            print("Opción no válida. No se suspenderá el servicio.")
-
-     elif opcion == 7:
-        connection.close()
-        break
-
-    else:
-        print("Opción no válida. Por favor, elige una opción válida.")
-
-#CLIENTES(EDGAR)
 fecha_hoy_cliente = dt.date.today()
 fecha_hoy_cliente = fecha_hoy_cliente.strftime('%m_%d_%Y')
 nombre_csv = f"ReporteClientesActivosPorClave_{fecha_hoy_cliente}.csv"
@@ -360,6 +20,321 @@ RFC_TEXT = """
 7: LOS 3 CARACTERES 
 """
 
+#TABLAS Y BASE DE DATOS
+while True:
+    try:
+        with sqlite3.connect("TALLER_PIA.db") as conn:
+            cursor = conn.cursor()
+            cursor.execute("CREATE TABLE IF NOT EXISTS clientes \
+                            (clave_cliente INTEGER PRIMARY KEY, \
+                            nombre TEXT NOT NULL, \
+                            rfc TEXT NOT NULL, \
+                            correo TEXT NOT NULL, \
+                            cliente_activo INTEGER NOT NULL);")
+            
+            cursor.execute("CREATE TABLE IF NOT EXISTS servicios \
+                            (clave_servicio INTEGER PRIMARY KEY, \
+                            nombre_servicio TEXT NOT NULL, \
+                            costo_servicio REAL NOT NULL, \
+                            servicio_activo INTEGER NOT NULL);")
+            
+            cursor.execute("CREATE TABLE IF NOT EXISTS notas \
+                            (folio INTEGER PRIMARY KEY, \
+                            fecha TIMESTAMP NOT NULL, \
+                            clave_cliente INTEGER NOT NULL, \
+                            FOREIGN KEY (clave_cliente) REFERENCES clientes(clave_cliente));")
+       
+            cursor.execute("CREATE TABLE detalles( \
+                            folio_notas INTEGER, \
+                            clave_servicio INTEGER, \
+                            FOREIGN KEY (Folio) REFERENCES Notas(Folio), \
+                            FOREIGN KEY (clave_servicio) REFERENCES Servicios(clave_servicio) \);")
+        break
+    except sqlite3.Error as e:
+        print(e)
+        continue
+    except Exception:
+        print(f"Se produjo el siguiente error: {sys.exc_info()[0]}")
+        continue
+    finally:
+        conn.close()
+
+#SERVICIOS
+def AGREGAR_SERVICIOS():
+    print()
+    while True:
+        servicio = input("INGRESE EL SERVICIO A REALIZAR: ").lower()
+        if not servicio.strip():
+            print("Este campo no puede estar vacío")
+        elif not servicio.isalpha():
+            print("Debes ingresar el nombre del servicio NO su costo")
+        else:
+            break
+
+    while True:
+        try:
+            costo_servicio = input('INGRESA EL COSTO DEL SERVICIO\n')
+            if (costo_servicio.strip() == ""):
+                print('NO SE DEBE OMITIR EL DATO')
+                print()
+                continue
+            if not(bool(re.match("^[0-9]+|[0-9]+.[0-9]$", costo_servicio))):
+                print('SOLO SE ACEPTAN ENTEROS O NUMEROS REALES\n')
+                print()
+                continue
+            costo_servicio = float(costo_servicio)
+            if (costo_servicio < 0):
+                print('EL COSTO DEBE SER MAYOR A CERO')
+                print()
+                continue
+            break
+        except Exception:
+            print(f"Se produjo el siguiente error: {sys.exc_info()[0]}")
+            print()
+            continue
+        
+    try:
+        with sqlite3.connect("TALLER_PIA.db") as conn:
+            mi_cursor = conn.cursor()
+            datos_servicio = {"nombre_servicio":servicio, "costo_servicio":costo_servicio, "servicio_activo": 1}
+            mi_cursor.execute("INSERT INTO servicios (nombre_servicio, costo_servicio, servicio_activo) VALUES(:nombre_servicio,:costo_servicio,:servicio_activo)", datos_servicio)
+    except Error as e:
+        print (e)
+    except Exception:
+        print(f"Se produjo el siguiente error: {sys.exc_info()[0]}")
+    finally:
+        conn.close()
+
+#*************************************************************************************************************#
+def BUSCAR_POR_CLAVE_SERVICIO():
+    print()
+    while True:
+        try:
+            opcion = int(input('INGRESA LA CLAVE DEL SERVICIO:\n'))
+            break
+        except ValueError:
+            print('SE DEBE INGRESAR DIGITOS ENTEROS\n')
+            continue
+        except Exception:
+            print(f"OCURRIO UN PROBLEMA {sys.exc_info()[0]}\n")
+            continue
+    
+    while True:
+        try:
+            with sqlite3.connect("TALLER_PIA.db") as conn:
+                consulta = "SELECT * FROM servicios"
+                servicio_df = pd.read_sql(consulta, conn)
+                servicio_especifico = servicio_df.loc[servicio_df["clave_servicio"] == opcion]
+            if not any(servicio_df["clave_servicio"] == opcion):
+                print("EL CLIENTE NO SE HA PODIDO ENCONTRAR")
+                print()
+                break
+            else:
+                print(servicio_especifico)
+                print()
+                break
+        except Error as e:
+            print(e)
+            continue
+        except Exception:
+            print(f"OCURRIO UN PROBLEMA {sys.exc_info()[0]}\n")
+            continue
+        
+def ORDENAR_SERVICIOS_CLAVE():
+    print()
+    while True:
+        try:
+            with sqlite3.connect("TALLER_PIA.db") as conn:
+                consulta = "SELECT * FROM servicios \
+                    ORDER BY clave_servicio ASC"
+                clientes_df = pd.read_sql(consulta, conn)
+                break
+        except Error as e:
+            print(e)
+            continue
+        except Exception:
+            print(f"OCURRIO UN PROBLEMA {sys.exc_info()[0]}\n")
+            continue
+    
+    while True:
+        try:
+            opcion = input('[1] EXPORTAR ARCHIVO A CSV\n[2] EXPORTAR ARCHIVO A EXCEL\n[3] REGRESAR AL MENU DE SERVICIOS\n')
+            if (opcion.strip() == ""):
+                print("NO SE DEBE OMITIR EL DATO")
+                continue
+            if not(bool(re.match("[1-3]{1}", opcion))):
+                print('NO CUMPLE CON EL PATRON\n')
+                continue
+            break
+        except ValueError:
+            print('SE DEBE INGRESAR DIGITOS ENTEROS\n')
+            continue
+        except Exception:
+            print(f"OCURRIO UN PROBLEMA {sys.exc_info()[0]}\n")
+            continue
+        
+    opcion = int(opcion)
+    if (opcion == 1):
+        return clientes_df.to_csv(f"{nombre_csv}", header = True , index = True)
+    elif (opcion == 2):
+        return clientes_df.to_excel(nombre_excel, index=False)
+    elif (opcion == 3):
+        return
+
+#*************************************************************************************************************#
+
+def BUSCAR_POR_NOMBRE_SERVICIO():
+    print()
+    while True:
+        try:
+            opcion = input('INGRESA EL NOMBRE DEL SERVICIO:\n')
+            if (opcion.strip() == ""):
+                print('NO SE DEBE OMITIR EL DATO\n')
+                continue
+            if not(bool(opcion.isalpha())):
+                print('SOLO ACEPTA LETRAS DEL ALFABETO\n')
+                continue                         
+            break
+        except Exception:
+            print(f"OCURRIO UN PROBLEMA {sys.exc_info()[0]}\n")
+            continue
+
+    while True:
+        try:
+            with sqlite3.connect("TALLER_PIA.db") as conn:
+                consulta = "SELECT * FROM servicios"
+                clientes_df = pd.read_sql(consulta, conn)
+                cliente_nombre = clientes_df.loc[clientes_df["nombre_servicio"] == opcion]                
+                if cliente_nombre.empty:
+                    print("EL SERVICIO NO EXISTE O NO SE ENCONTRO")
+                    print()
+                    break
+                else:
+                    print(cliente_nombre)
+                    print()
+                    break
+        except Error as e:
+            print(e)
+            continue
+        except Exception:
+            print(f"OCURRIO UN PROBLEMA {sys.exc_info()[0]}\n")
+            continue
+
+def ORDENAR_SERVICIOS_NOMBRE():
+    print()
+    while True:
+        try:
+            with sqlite3.connect("TALLER_PIA.db") as conn:
+                consulta = "SELECT * FROM servicios \
+                    ORDER BY nombre_servicio ASC"
+                clientes_df = pd.read_sql(consulta, conn)
+                break
+        except Error as e:
+            print(e)
+            continue
+        except Exception:
+            print(f"OCURRIO UN PROBLEMA {sys.exc_info()[0]}\n")
+            continue
+        
+    while True:
+        try:
+            opcion = input('EXPORTAR ARCHIVO A CSV [1]\nEXPORTAR ARCHIVO A EXCEL [2]\nREGRESAR A MENU DE SERVICIOS [3]\n')
+            if not(bool(re.match("[1-3]{1}", opcion))):
+                print('NO CUMPLE CON EL PATRON\n')
+                continue
+            break
+        except ValueError:
+            print('SE DEBE INGRESAR DIGITOS ENTEROS\n')
+            continue
+        except Exception:
+            print(f"OCURRIO UN PROBLEMA {sys.exc_info()[0]}")
+            continue
+    opcion = int(opcion)
+    if (opcion == 1):
+        return clientes_df.to_csv(f"{nombre_csv}", header = True , index = True)
+    elif (opcion == 2):
+        return clientes_df.to_excel(nombre_excel, index=False)
+    elif (opcion == 3):
+        print('REGRESANDO....')
+        return
+
+def LISTADO_CONSULTAS_SERVICIOS():
+    print()
+    while True:
+        try:
+            opcion = input('LISTADO DE CLIENTES\nORDENADOS POR LA CLAVE [1]\nORDENADOS POR EL NOMBRE [2]\nVOLVER AL MENU DE CONSULTAS Y REPORTES [3]\n')
+            if not(bool(re.match("[1-3]{1}", opcion))):
+                print('NO CUMPLE CON EL PATRON\n')
+                continue        
+        except ValueError:
+            print('SE DEBE INGRESAR DIGITOS ENTEROS\n')
+            continue
+        except Exception:
+            print(f"OCURRIO UN PROBLEMA {sys.exc_info()[0]}\n")
+            continue
+        else:
+            opcion = int(opcion)
+            if (opcion == 1):
+                ORDENAR_SERVICIOS_CLAVE()
+            elif (opcion == 2):
+                ORDENAR_SERVICIOS_NOMBRE()
+            elif (opcion == 3):
+                print('REGRESANDO....')
+                return
+
+
+#*************************************************************************************************************#
+
+def CONSULTAS_REPORTES_SERVICIOS():
+    print()
+    while True:
+        try:
+            opcion = input('LISTADO DE CLIENTES\nBUCAR POR LA CLAVE [1]\nBUSCAR POR EL NOMBRE [2]\nLISTADO DE SERVICIOS[3]\nVOLVER AL MENU DE CONSULTAS Y REPORTES [4]\n')
+            if not(bool(re.match("[1-4]{1}", opcion))):
+                print('NO CUMPLE CON EL PATRON\n')
+                continue
+        except ValueError:
+            print('SE DEBE INGRESAR DIGITOS ENTEROS\n')
+            continue
+        except Exception:
+            print(f"OCURRIO UN PROBLEMA {sys.exc_info()[0]}\n")
+            continue
+        else:
+            opcion = int(opcion)
+            if (opcion == 1):
+                BUSCAR_POR_CLAVE()
+            elif (opcion == 2):
+                BUSCAR_POR_NOMBRE()
+            elif (opcion == 3):
+                LISTADO_SERVICIOS()
+            elif (opcion == 4):
+                return
+
+def MENU_SERVICIOS_PRINCIPAL():
+    while True:
+        try:
+            opcion = input('MENU DE CLIENTES\nREGISTRAR UN NUEVO CLIENTE [1]\nCONSULTAS Y REPORTES [2]\nVOLVER AL MENU PRINCIPAL [3]\n')
+            if not(bool(re.match("[1-3]{1}", opcion))):
+                print('NO CUMPLE CON EL PATRON\n')
+                continue
+        except ValueError:
+            print('SE DEBE INGRESAR DIGITOS ENTEROS\n')
+            continue
+        except Exception:
+            print(f"OCURRIO UN PROBLEMA {sys.exc_info()[0]}\n")
+            continue
+        else:
+            opcion = int(opcion)
+            if (opcion == 1):
+                NUEVO_CLIENTE()
+            elif (opcion == 2):
+                CONSULTAS_REPORTES_SERVICIOS()
+            elif (opcion == 3):
+                return
+
+#*************************************************************************************************************#
+
+#CLIENTES(EDGAR)
 def NUEVO_CLIENTE():
     while True:
         nombre_cliente = input('INGRESA EL NOMBRE DEL CLIENTE:\n')
@@ -397,8 +372,8 @@ def NUEVO_CLIENTE():
     try:
         with sqlite3.connect("TALLER_PIA.db") as conn:
             mi_cursor = conn.cursor()
-            datos_cliente = {"nombre":nombre_cliente, "rfc":rfc_cliente, "correo": correo_cliente}
-            mi_cursor.execute("INSERT INTO clientes VALUES(:nombre,:rfc,:correo)", datos_cliente)
+            datos_cliente = {"nombre":nombre_cliente, "rfc":rfc_cliente, "correo": correo_cliente, "cliente_activo": 1}
+            mi_cursor.execute("INSERT INTO clientes (nombre, rfc, correo, cliente_activo) VALUES(:nombre,:rfc,:correo,:cliente_activo)", datos_cliente)
     except Error as e:
         print (e)
     except Exception:
@@ -489,7 +464,7 @@ def BUSCAR_POR_NOMBRE():
     print()
     while True:
         try:
-            opcion = input('INGRESA LA CLAVE DEL CLIENTE:\n')
+            opcion = input('INGRESA EL NOMBRE DEL CLIENTE:\n')
             if (opcion.strip() == ""):
                 print('NO SE DEBE OMITIR EL DATO\n')
                 continue
@@ -521,8 +496,6 @@ def BUSCAR_POR_NOMBRE():
         except Exception:
             print(f"OCURRIO UN PROBLEMA {sys.exc_info()[0]}\n")
             continue
-
-    
 
 def ORDENAR_CLIENTES_NOMBRE():
     print()
@@ -626,7 +599,7 @@ def MENU_CLIENTES_PRINCIPAL():
         except Exception:
             print(f"OCURRIO UN PROBLEMA {sys.exc_info()[0]}\n")
             continue
-        else
+        else:
             opcion = int(opcion)
             if (opcion == 1):
                 NUEVO_CLIENTE()
@@ -634,5 +607,505 @@ def MENU_CLIENTES_PRINCIPAL():
                 CONSULTAS_REPORTES()
             elif (opcion == 3):
                 return
+
+#NOTAS
+fecha_actual = dt.datetime.now()
+fecha_maxima = fecha_actual.strftime("%d/%m/%Y")
+fecha_hoy = dt.datetime.strptime(fecha_maxima, "%d/%m/%Y")
+
+
+def registrar_nota():
+    print("REGISTRO DE NOTA")
+    print()
+    while True:
+        print(f"Fecha actual: {fecha_maxima}")
+        fecha_nota = input("FECHA DE LA NOTA\nDEBERA CUMPLIR EL SIGUIENTE FORMATO: DD/MM/AAAA\n")
+        if fecha_nota.strip() == "":
+            print('NO SE DEBE OMITIR EL DATO\n')
+            continue
+        try:
+            fecha_nota = dt.datetime.strptime(fecha_nota, "%d/%m/%Y")
+            if fecha_nota > fecha_actual:
+                print("\nLA FECHA DE LA NOTA DEBE SER MENOR O IGUAL A LA FECHA DE HOY\n")
+                continue
+        except Exception:
+            print("\nFORMATO DE FECHA INCORRECTO. INTENTA LO SIGUIENTE\nDD/MM/AAAA.\n")
+            continue
+        break
+
+    while True:
+        cliente_clave = input("ESCRIBE LA CLAVE DEL CLIENTE:\n")
+        if cliente_clave.strip() == "":
+            print("NO SE DEBE OMITIR EL DATO\n")
+            continue
+        if (cliente_clave.isalpha()):
+            print('SOLO SE ACEPTAN NUMEROS PARA LA CLAVE\n')
+            continue  
+        break
     
+    while True:
+        servicio_clave = input("ESCRIBE LA CLAVE DEL CLIENTE:\n")
+        if servicio_clave.strip() == "":
+            print("NO SE DEBE OMITIR EL DATO\n")
+            continue
+        if not(bool((servicio_clave.isalpha()))):
+            print('SOLO SE ACEPTAN NUMEROS PARA LA CLAVE\n')
+            continue  
+        break
+
+def consultar_periodo():
+    while True:
+        try:
+            fecha_inicio = input("\nINGRESE LA FECHA INICIAL: DD/MM/AAAA\n")
+            if fecha_inicio.strip() == "":
+                fecha_inicio = "01/01/2000"
+            fecha_inicio = dt.datetime.strptime(fecha_inicio, "%d/%m/%Y")
+        except ValueError:
+            print("\nFormato de fecha incorrecto, ingrese la fecha en el formato DD/MM/AAAA\n")
+
+        while True:
+            try:
+                fecha_final = input("INGRESE LA FECHA FINAL: DD/MM/AAAA\n")
+                if fecha_final.strip() == "":
+                    fecha_final = fecha_hoy
+                else:
+                    fecha_final = dt.datetime.strptime(fecha_final, "%d/%m/%Y")
+            except ValueError:
+                print("Formato de fecha incorrecto, ingrese la fecha en el formato (DD/MM/AAAA)")
+            else:
+                break
+        if fecha_inicio > fecha_final:
+            print('\nLA FECHA INICIO DEBE SER MENOR A LA FECHA FINAL\n')
+            continue
+        break
+    pd.to_datetime(fecha_inicio)
+    pd.to_datetime(fecha_final)
+         
+    while True:
+        try:
+            with sqlite3.connect("TALLER_PIA.db") as conn:     
+                consulta = "SELECT folio, fecha, clientes.nombre \
+                FROM notas \
+                INNER JOIN clientes ON notas.clave_cliente = clientes.clave_cliente \
+                WHERE fecha >= ? AND fecha <= ?"
+                notas_df = pd.read_sql(consulta, conn, params=(fecha_inicio, fecha_final))
+                monto_promedio = notas_df["costo_total"].mean()
+
+            print("Reporte de notas por período")
+            print("Fecha inicial:", fecha_inicio)
+            print("Fecha final:", fecha_final)
+            print("Monto promedio:", monto_promedio)
+            print()
+            print("Folio | Fecha | Cliente")
+            for nota in notas_df.itertuples():
+                print(nota.folio, nota.fecha, nota.nombre)
+            break
+        except Error as e:
+            print(e)
+            continue
+        except Exception:
+            print(f"OCURRIO UN PROBLEMA {sys.exc_info()[0]}")
+            continue
+            
+        
+    while True:
+        try:
+            opcion = input('EXPORTAR ARCHIVO A CSV [1]\nEXPORTAR ARCHIVO A EXCEL [2]\nREGRESAR A MENU DE CLIENTES [3]\n')
+            if not(bool(re.match("[1-3]{1}", opcion))):
+                print('NO CUMPLE CON EL PATRON\n')
+                continue
+            break
+        except ValueError:
+            print('SE DEBE INGRESAR DIGITOS ENTEROS\n')
+            continue
+        except Exception:
+            print(f"OCURRIO UN PROBLEMA {sys.exc_info()[0]}")
+            continue
+    opcion = int(opcion)
+    if (opcion == 1):
+        return notas_df.to_csv(f"{nombre_csv}", header = True , index = True)
+    elif (opcion == 2):
+        return notas_df.to_excel(nombre_excel, index=False)
+    elif (opcion == 3):
+        print('REGRESANDO....')
+        return
+
+            
+def consultar_folio():
+    while True:
+        try:
+            consultar = input("Escribe el id de la nota que buscas\n[0] SALIDA")
+            if (consultar == ""):
+                print('no se debe omitir el dato')
+                continue
+            if not(bool(re.match("^[0-9]{1,9}$", consultar))):
+                print("No se ingreso un digito")
+                continue
+            consultar = int(consultar)
+            if (consultar == 0):
+                return
+        except ValueError:
+            print("Ingreso un valor no valido")
+        else:
+            break
+
+    while True:
+        with sqlite3.connect("TALLER_PIA.db") as conn:
+            consulta = "SELECT folio, fecha, clientes.nombre FROM notas \
+            INNER JOIN clientes ON notas.clave_cliente = clientes.clave_cliente \
+            ORDER BY folio"
+            notas_df = pd.read_sql(query, conn)
+            nota = notas_df.loc[notas_df["folio"] == consultar]
+
+            if nota.empty:
+                print("NOTA INEXISTENTE")
+            else:
+                print("Folio:", nota["folio"])
+                print("Fecha:", nota["fecha"])
+                print("Cliente:", nota["nombre"])
+                
+        detalles_df = notas_df.iloc[nota.index, 2:]
+        print("Detalles:")
+        for detalle in detalles_df.itertuples():
+            print(detalle[0], detalle[1])
+
+
+def consultas_reportes():
+    while True:
+        print('COMO DESEAS CONSULTAR EN LA BASE DE DATOS:\n')
+        print('[1] POR PERIODO\n[2] POR FOLIO\n[3] POR CLIENTE')
+        try:
+            opcion = input('SELECCIONA: ')
+            if (opcion.strip() == ""):
+                print('No se debe omitir el dato')
+                continue
+            if not(bool(re.match("^[1-2]{1}$", opcion))):
+                print('No cumple con el patrón')
+                continue
+            opcion = int(opcion)
+            if opcion == 1:
+                consultar_periodo()
+            elif opcion == 2:
+                consultar_folio()
+        except ValueError:
+            print('Debes ingresar un dato entero')
+        break
+
+def cancelar_nota():
+    print("CANCELAR UNA NOTA")
+    while True:
+        try:
+            folio_cancelar = int(input("Ingresa el folio de la nota que deseas cancelar (0 para salir): "))
+            if folio_cancelar == 0:
+                return
+            if folio_cancelar in dic_principal:
+                nota_cancelar = dic_principal.pop(folio_cancelar)
+                papelera[folio_cancelar] = nota_cancelar
+                print(f"Nota con folio {folio_cancelar} cancelada exitosamente.")
+                break
+            else:
+                print("Folio no encontrado. Intente de nuevo.")
+        except ValueError:
+            print("Debes ingresar un número entero válido.")
+
+def recuperar_nota_cancelada():
+    print("RECUPERAR UNA NOTA CANCELADA")
+    while True:
+        try:
+            folio_recuperar = int(input("Ingresa el folio de la nota que deseas recuperar (0 para salir): "))
+            if folio_recuperar == 0:
+                return
+            if folio_recuperar in papelera:
+                nota_recuperar = papelera.pop(folio_recuperar)
+                dic_principal[folio_recuperar] = nota_recuperar
+                print(f"Nota con folio {folio_recuperar} recuperada exitosamente.")
+                break
+            else:
+                print("Folio no encontrado en la papelera. Intente de nuevo.")
+        except ValueError:
+            print("Debes ingresar un número entero válido.")
+
+def menu_principal_notas():
+    while True:
+        print("\nMenú Principal")
+        print("1. Registrar una nota")
+        print("2. Consultas y Reportes")
+        print("3. Cancelar una nota")
+        print("4. Recuperar una nota cancelada")
+        print("5. Salir\n")
+
+        try:
+            opcion = input("Ingresa el número de la opción que deseas seleccionar: ")
+            if opcion.strip() == "":
+                print('No se debe omitir el dato')
+                continue
+            opcion = int(opcion)
+        except ValueError:
+            print("Debes ingresar un número entero.")
+        else:
+            if opcion == 1:
+                registrar_nota()
+            elif opcion == 2:
+                consultas_reportes()
+            elif opcion == 3:
+                cancelar_nota()
+            elif opcion == 4:
+                recuperar_nota_cancelada()
+            elif opcion == 5:
+                guardar_dic_principal(dic_principal)
+                return
+            else:
+                print("Opción no válida. Por favor, elige una opción del 1 al 5.")
 #ESTADISTICOS(TODOS)
+import sqlite3
+
+def clientes_con_mas_notas(conexion, cantidad_clientes, fecha_inicial, fecha_final):
+    # Consulta SQL para obtener los clientes con más notas
+    query = """
+        SELECT cliente.nombre, COUNT(*) as cantidad
+        FROM notas
+        INNER JOIN clientes ON notas.clave_cliente = clientes.clave_cliente
+        WHERE notas.fecha BETWEEN ? AND ?
+        GROUP BY cliente.nombre
+        ORDER BY cantidad DESC
+        LIMIT ?
+    """
+
+    # Obtener los resultados de la consulta
+    cursor = conexion.cursor()
+    cursor.execute(query, (fecha_inicial, fecha_final, cantidad_clientes))
+    resultados = cursor.fetchall()
+
+    # Imprimir el informe
+    print("\nClientes con más notas en el período:")
+    print("Nombre\t\tCantidad")
+
+    for cliente, cantidad in resultados:
+        print(f"{cliente}\t\t{cantidad}")
+
+    # Ofrecer la opción de exportar el informe
+    exportar_opcion = input("\n¿Desea exportar el informe a CSV o Excel? (CSV/Excel): ")
+
+    # Exportar el informe si el usuario lo indica
+    if exportar_opcion.lower() in ("csv", "excel"):
+        nombre_archivo = f"ReporteClientesConMasNotas_{fecha_inicial}_{fecha_final}.{exportar_opcion}"
+        exportar_informe(resultados, nombre_archivo)
+
+def exportar_informe(resultados, nombre_archivo):
+    # Exportar el informe a CSV
+    if nombre_archivo.lower() == "csv":
+        with open(nombre_archivo, "w", newline="") as csv_file:
+            csv_writer = csv.writer(csv_file)
+            csv_writer.writerow(["Nombre", "Cantidad"])
+            csv_writer.writerows(resultados)
+
+    # Exportar el informe a Excel
+    elif nombre_archivo.lower() == "excel":
+        import xlsxwriter
+
+        # Crear un libro de Excel
+        libro = xlsxwriter.Workbook(nombre_archivo)
+        hoja = libro.add_worksheet()
+
+        # Agregar los encabezados a la hoja
+        hoja.write("A1", "Nombre")
+        hoja.write("B1", "Cantidad")
+
+        # Agregar los datos a la hoja
+        for cliente, cantidad in resultados:
+            hoja.write(hoja.get_row_count(), 0, cliente)
+            hoja.write(hoja.get_row_count(), 1, cantidad)
+
+        # Guardar el libro de Excel
+        libro.close()
+import sqlite3
+
+def promedio_monto_notas(conexion, fecha_inicial, fecha_final):
+    # Consulta SQL para obtener el monto total de las notas
+    query = """
+        SELECT SUM(costo_servicio) as monto_total
+        FROM detalles
+        INNER JOIN notas ON detalles.folio_notas = notas.folio
+        WHERE notas.fecha BETWEEN ? AND ?
+    """
+
+    # Obtener los resultados de la consulta
+    cursor = conexion.cursor()
+    cursor.execute(query, (fecha_inicial, fecha_final))
+    monto_total = cursor.fetchone()[0]
+
+    # Consulta SQL para obtener la cantidad de notas
+    query = """
+        SELECT COUNT(*) as cantidad_notas
+        FROM notas
+        WHERE notas.fecha BETWEEN ? AND ?
+    """
+
+    # Obtener los resultados de la consulta
+    cursor.execute(query, (fecha_inicial, fecha_final))
+    cantidad_notas = cursor.fetchone()[0]
+
+    # Calcular el promedio
+    promedio = monto_total / cantidad_notas
+
+    # Imprimir el informe
+    print(f"El promedio de los montos de las notas en el período {fecha_inicial} - {fecha_final} es: {promedio}")
+
+if __name__ == "__main__":
+    # Conectarse a la base de datos
+    conexion = sqlite3.connect("mi_base_de_datos.db")
+
+    # Solicitar los parámetros al usuario
+    fecha_inicial = input("Ingrese la fecha inicial del período a reportar (mm_dd_aaaa): ")
+    fecha_final = input("Ingrese la fecha final del período a reportar (mm_dd_aaaa): ")
+
+    # Llamar a la función para generar el informe
+    promedio_monto_notas(conexion, fecha_inicial, fecha_final)
+
+    # Cerrar la conexión a la base de datos
+    conexion.close()
+def cantidad_servicios_mas_prestados(conexion, tabla_servicios, tabla_detalles, cantidad_servicios):
+    fecha_inicial = input("Ingrese la fecha inicial del período a reportar (mm_dd_aaaa): ")
+    fecha_final = input("Ingrese la fecha final del período a reportar (mm_dd_aaaa): ")
+
+    query = '''
+        SELECT Servicio, COUNT(*) as cantidad
+        FROM `tabla_servicios`
+        WHERE fecha_atencion BETWEEN ? AND ?
+        GROUP BY nombre
+        ORDER BY cantidad DESC
+        LIMIT ?
+    '''
+
+    cursor = conexion.cursor()
+    cursor.execute(query, (fecha_inicial, fecha_final, cantidad_servicios))
+    resultados = cursor.fetchall()
+
+    print("\nServicios más solicitados en el período:")
+    print("Nombre del Servicio\tCantidad")
+
+    for servicio, cantidad in resultados:
+        print(f"{servicio}\t\t\t{cantidad}")
+
+    exportar_opcion = input("\n¿Desea exportar el informe a CSV? (Sí/No): ")
+
+    if exportar_opcion.lower() == "sí":
+        nombre_archivo = f"ReporteServiciosMasPrestados_{fecha_inicial}_{fecha_final}.csv"
+        with open(nombre_archivo, 'w', newline='') as csv_file:
+            csv_writer = csv.writer(csv_file)
+            csv_writer.writerow(["Nombre del Servicio", "Cantidad"])
+            csv_writer.writerows(resultados)
+
+        print(f"El informe ha sido exportado como '{nombre_archivo}'.")
+
+    cursor.close()
+
+if __name__ == "__main__":
+    import mysql.connector
+
+    # Conectarse a la base de datos
+    conexion = mysql.connector.connect(
+        host="localhost",
+        user="root",
+        password="",
+        database="mi_base_de_datos"
+    )
+
+    # Asignar los nombres de las tablas
+    tabla_servicios = "servicios"
+    tabla_detalles = "detalles"
+
+    # Llamar a la función
+    cantidad_servicios_mas_prestados(conexion, tabla_servicios, tabla_detalles, 10)
+
+
+def menu():
+    # Conectarse a la base de datos
+    conexion = sqlite3.connect("mi_base_de_datos.db")
+
+    while True:
+        print("Menú principal")
+        print("1. Clientes con más notas")
+        print("2. Salir")
+
+        opcion = input("Ingrese su opción: ")
+
+        if opcion == "1":
+            # Solicitar los parámetros al usuario
+            cantidad_clientes = int(input("Ingrese la cantidad de clientes con más notas a identificar: "))
+            while cantidad_clientes < 1:
+                cantidad_clientes = int(input("Por favor, ingrese un valor igual o mayor a 1: "))
+
+            fecha_inicial = input("Ingrese la fecha inicial del período a reportar (mm_dd_aaaa): ")
+            fecha_final = input("Ingrese la fecha final del período a reportar (mm_dd_aaaa): ")
+
+            # Llamar a la función para generar el informe
+            clientes_con_mas_notas(conexion, cantidad_clientes, fecha_inicial, fecha_final)
+
+        elif opcion == "2":
+            print("Saliendo...")
+            break
+
+        else:
+            print("Opción no válida.")
+
+    # Cerrar la conexión a la base de datos
+    conexion.close()
+
+
+import sqlite3
+
+def menu_estadistica():
+    # Conectarse a la base de datos
+    conexion = sqlite3.connect("mi_base_de_datos.db")
+
+    while True:
+        print("Menú principal")
+        print("1. Clientes con más notas")
+        print("2. Servicios más solicitados")
+        print("3. Promedio de los montos de las notas")
+        print("4. Salir")
+
+        opcion = input("Ingrese su opción: ")
+
+        if opcion == "1":
+            # Solicitar los parámetros al usuario
+            cantidad_clientes = int(input("Ingrese la cantidad de clientes con más notas a identificar: "))
+            while cantidad_clientes < 1:
+                cantidad_clientes = int(input("Por favor, ingrese un valor igual o mayor a 1: "))
+
+            fecha_inicial = input("Ingrese la fecha inicial del período a reportar (mm_dd_aaaa): ")
+            fecha_final = input("Ingrese la fecha final del período a reportar (mm_dd_aaaa): ")
+
+            # Llamar a la función para generar el informe
+            clientes_con_mas_notas(conexion, cantidad_clientes, fecha_inicial, fecha_final)
+
+        elif opcion == "2":
+            # Solicitar los parámetros al usuario
+            cantidad_servicios = int(input("Ingrese la cantidad de servicios más solicitados a identificar: "))
+            while cantidad_servicios < 1:
+                cantidad_servicios = int(input("Por favor, ingrese un valor igual o mayor a 1: "))
+
+            fecha_inicial = input("Ingrese la fecha inicial del período a reportar (mm_dd_aaaa): ")
+            fecha_final = input("Ingrese la fecha final del período a reportar (mm_dd_aaaa): ")
+
+            # Llamar a la función para generar el informe
+            cantidad_servicios_mas_prestados(conexion, cantidad_servicios, fecha_inicial, fecha_final)
+
+        elif opcion == "3":
+            # Solicitar los parámetros al usuario
+            fecha_inicial = input("Ingrese la fecha inicial del período a reportar (mm_dd_aaaa): ")
+            fecha_final = input("Ingrese la fecha final del período a reportar (mm_dd_aaaa): ")
+
+            # Llamar a la función para generar el informe
+            promedio_monto_notas(conexion, fecha_inicial, fecha_final)
+
+        elif opcion == "4":
+            print("Saliendo...")
+            break
+
+        else:
+            print("Opción no válida.")
+
+    # Cerrar la conexión a la base de datos
+    conexion.close()
