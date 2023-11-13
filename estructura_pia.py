@@ -95,6 +95,88 @@ except Exception:
     
 
 #CREAR NOTAS (PARTE DE CHOCO)
+database_file = 'notas.db'
+connection = create_connection(database_file)
+
+def create_detalles_notas(conn):
+    try:
+        with conn:
+            cursor = conn.cursor()
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS detalles_notas (
+                    id INTEGER PRIMARY KEY,
+                    folio INTEGER,
+                    clave_servicio INTEGER,
+                    cantidad INTEGER,
+                    FOREIGN KEY (folio) REFERENCES notas(folio),
+                    FOREIGN KEY (clave_servicio) REFERENCES servicios(ClaveUnica)
+                );
+            ''')
+    except sqlite3.Error as e:
+        print(e)
+
+def insert_cliente(conn, nombre, rfc, correo):
+    try:
+        with conn:
+            cursor = conn.cursor()
+            cursor.execute('''
+                INSERT INTO clientes (nombre, rfc, correo)
+            ''', (nombre, rfc, correo))
+    except sqlite3.Error as e:
+        print(e)
+
+def get_clientes(conn):
+    try:
+        return pd.read_sql_query("SELECT * FROM clientes", conn)
+    except sqlite3.Error as e:
+        print(e)
+        return pd.DataFrame()
+
+def create_note(conn, clave_cliente):
+    try:
+        with conn:
+            cursor = conn.cursor()
+            fecha_actual = datetime.now()
+            monto_total = 0
+
+            cliente = cursor.execute("SELECT nombre FROM clientes WHERE clave_cliente = ?", (clave_cliente,)).fetchone()
+            if cliente is not None:
+                print(f"\nCreando nota para el cliente: {cliente[0]}\n")
+
+                print("Servicios disponibles:")
+                servicios_df = get_all_services(conn)
+                print(servicios_df)
+
+                detalles = []
+                while True:
+                    clave_servicio = input("Ingrese la clave del servicio (o 'fin' para terminar): ")
+                    if clave_servicio.lower() == 'fin':
+                        break
+
+                    servicio = servicios_df[servicios_df['ClaveUnica'] == int(clave_servicio)]
+                    if not servicio.empty:
+                        cantidad = int(input(f"Ingrese la cantidad de '{servicio['Servicio'].values[0]}': "))
+                        monto_total += servicio['Costo'].values[0] * cantidad
+                        detalles.append((clave_servicio, cantidad))
+                    else:
+                        print("Clave de servicio no válida. Intente nuevamente.")
+
+                cursor.execute('''
+                    INSERT INTO notas (fecha, clave_cliente, monto_pagar)
+                ''', (fecha_actual, clave_cliente, monto_total))
+                nota_folio = cursor.lastrowid
+
+                for clave_servicio, cantidad in detalles:
+                    cursor.execute('''
+                        INSERT INTO detalles_notas (folio, clave_servicio, cantidad)
+                    ''', (nota_folio, clave_servicio, cantidad))
+
+                print("\nNota creada exitosamente.")
+            else:
+                print(f"\nCliente con clave {clave_cliente} no encontrado.")
+    except sqlite3.Error as e:
+        print(e)
+        
 #CONSULTAS Y REPORTES DE LAS NOTAS (DIEGO)
 
 def consultar_por_periodo(fecha_inicial=None, fecha_final=None):
